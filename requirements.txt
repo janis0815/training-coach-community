@@ -1,0 +1,5 @@
+python-telegram-bot==21.6
+groq
+python-dotenv==1.1.0
+playwright
+httpx

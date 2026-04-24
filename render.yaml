@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: training-coach-community
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: STRAVA_CLIENT_ID
+        sync: false
+      - key: STRAVA_CLIENT_SECRET
+        sync: false
+      - key: SUUNTO_CLIENT_ID
+        sync: false
+      - key: SUUNTO_CLIENT_SECRET
+        sync: false
+      - key: SUUNTO_SUBSCRIPTION_KEY
+        sync: false
+      - key: SUUNTO_WEBHOOK_SECRET
+        sync: false
+      - key: OAUTH_BASE_URL
+        sync: false
+      - key: OAUTH_HOST
+        value: "0.0.0.0"
+      - key: OAUTH_PORT
+        value: "5000"
+      - key: REQUIRE_HTTPS
+        value: "true"
