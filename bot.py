@@ -557,6 +557,8 @@ async def anleitung(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Wenn du ihn eine Weile nicht benutzt hast, schläft er ein — "
         "die erste Antwort kann dann bis zu 50 Sekunden dauern. "
         "Danach geht's wieder flott. 😊\n\n"
+        "💤 Bot reagiert nicht? Öffne diesen Link im Browser zum Aufwecken:\n"
+        "https://training-coach-community.onrender.com/health\n\n"
         "Sonntag 18:00 erinnere ich dich automatisch an deinen neuen Wochenplan!",
         parse_mode="Markdown",
     )
