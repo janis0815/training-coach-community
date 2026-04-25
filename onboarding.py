@@ -84,8 +84,8 @@ def get_setup_message(step: str, user: dict) -> str:
     if step == "data_source_suunto":
         return (
             "🔗 Wie sollen deine Suunto-Daten abgerufen werden?\n\n"
-            "1. 🔗 **Suunto API** — Direkt von Suunto (wird eingerichtet sobald verfügbar)\n"
-            "2. 🔗 **Via Strava** — Suunto synchronisiert zu Strava, wir holen die Daten dort\n\n"
+            "1. 🔗 Suunto API — Direkt von Suunto\n"
+            "2. 🔗 Via Strava — Suunto synchronisiert zu Strava\n\n"
             "Schick mir die Nummer."
         )
 
@@ -283,14 +283,16 @@ def process_setup_input(user: dict, text: str) -> tuple[str, bool]:
             return "❌ Bitte schick mir `1` oder `2`.", False
 
         if choice == "1":
+            import os
             from suunto import get_suunto_auth_link
-            auth_link = get_suunto_auth_link(chat_id, "http://localhost:5000/suunto/callback")
+            oauth_base = os.getenv("OAUTH_BASE_URL", "http://localhost:5000")
+            auth_link = get_suunto_auth_link(chat_id, f"{oauth_base}/suunto/callback")
             update_user(chat_id, data_source="suunto_api", setup_step="sports")
             return (
-                "🔗 **Suunto API verbinden**\n\n"
-                "Klicke auf den Link, melde dich bei Suunto an und erlaube den Zugriff:\n\n"
-                f"👉 {auth_link}\n\n"
-                "Danach kannst du dieses Fenster schließen und zurück hierher kommen.\n\n"
+                "🔗 Suunto API verbinden\n\n"
+                "Klicke auf den Link und erlaube den Zugriff:\n\n"
+                f"{auth_link}\n\n"
+                "Danach kannst du das Fenster schließen und hierher zurückkommen.\n\n"
                 + get_setup_message("sports", user)
             ), False
         else:
