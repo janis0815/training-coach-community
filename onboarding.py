@@ -432,7 +432,7 @@ def _build_profile_summary(chat_id: int) -> str:
 
     summary += (
         "\n⚡ *Dieser Bot läuft auf kostenlosen Servern — "
-        "bei zu vielen Nachrichten auf einmal einfach kurz warten.*\n\n"
+        "wenn du ihn eine Weile nicht benutzt hast, kann die erste Antwort bis zu 50 Sekunden dauern. Danach geht's flott!*\n\n"
         "**Befehle:**\n"
         "/plan — Neuen Wochenplan starten\n"
         "/checkin — Midweek Check-in\n"

@@ -2,69 +2,50 @@
 
 ## Vorbereitung
 
-1. Erstelle ein GitHub-Repository für den Community-Bot
-2. Pushe den Code dahin (OHNE die `.env`-Datei — die ist in `.gitignore`)
+1. Erstelle ein GitHub-Repository und pushe den Code (OHNE `.env`)
+2. Erstelle einen Account auf https://render.com (kostenlos mit GitHub)
 
-## Auf Render deployen
+## Service erstellen
 
-### Schritt 1: Account erstellen
-- Geh zu https://render.com
-- Klick "Get Started for Free"
-- Melde dich mit deinem GitHub-Account an
+1. Render Dashboard → "New +" → "Web Service"
+2. Verbinde dein GitHub-Repo
+3. Einstellungen:
+   - Name: `training-coach-community`
+   - Region: `Frankfurt (EU Central)`
+   - Runtime: `Docker`
+   - Plan: `Free`
 
-### Schritt 2: Neuen Service erstellen
-- Klick oben rechts auf "New +"
-- Wähle "Web Service"
-- Verbinde dein GitHub-Repository
-- Wähle das Repository mit dem Community-Bot aus
+## Umgebungsvariablen
 
-### Schritt 3: Service konfigurieren
-- Name: `training-coach-community` (oder was du willst)
-- Region: `Frankfurt (EU Central)` (am nächsten zu dir)
-- Branch: `main`
-- Runtime: `Docker` (wird automatisch erkannt wegen Dockerfile)
-- Instance Type: `Free`
+Unter "Environment" alle Keys eintragen:
 
-### Schritt 4: Umgebungsvariablen setzen
-Klick auf "Environment" und füge diese Variablen hinzu:
+| Key | Value | Woher? |
+|-----|-------|--------|
+| `GROQ_API_KEY` | Dein Key | https://console.groq.com |
+| `TELEGRAM_BOT_TOKEN` | Dein Token | @BotFather in Telegram |
+| `STRAVA_CLIENT_ID` | Deine ID | https://www.strava.com/settings/api |
+| `STRAVA_CLIENT_SECRET` | Dein Secret | https://www.strava.com/settings/api |
+| `SUUNTO_CLIENT_ID` | Deine ID | https://apizone.suunto.com/profile |
+| `SUUNTO_CLIENT_SECRET` | Dein Secret | https://apizone.suunto.com/profile |
+| `SUUNTO_SUBSCRIPTION_KEY` | Dein Key | https://apizone.suunto.com/profile |
+| `OAUTH_BASE_URL` | `https://DEIN-SERVICE.onrender.com` | Render Dashboard |
+| `OAUTH_HOST` | `0.0.0.0` | Immer so |
+| `OAUTH_PORT` | `5000` | Immer so |
+| `REQUIRE_HTTPS` | `true` | Immer so |
 
-| Key | Value |
-|-----|-------|
-| `GROQ_API_KEY` | Dein Groq API Key |
-| `TELEGRAM_BOT_TOKEN` | Dein Telegram Bot Token |
-| `STRAVA_CLIENT_ID` | Deine Strava Client ID |
-| `STRAVA_CLIENT_SECRET` | Dein Strava Client Secret |
-| `SUUNTO_CLIENT_ID` | Deine Suunto Client ID |
-| `SUUNTO_CLIENT_SECRET` | Dein Suunto Client Secret |
-| `SUUNTO_SUBSCRIPTION_KEY` | Dein Suunto Subscription Key |
-| `SUUNTO_WEBHOOK_SECRET` | Dein Suunto Webhook Secret |
-| `OAUTH_BASE_URL` | `https://training-coach-community.onrender.com` |
-| `OAUTH_HOST` | `0.0.0.0` |
-| `OAUTH_PORT` | `5000` |
-| `REQUIRE_HTTPS` | `true` |
+## Nach dem ersten Deploy
 
-(Den OAUTH_BASE_URL bekommst du nach dem ersten Deploy — das ist die URL die Render dir gibt)
-
-### Schritt 5: Deploy starten
-- Klick "Create Web Service"
-- Warte bis der Build fertig ist (dauert 2-3 Minuten)
-- Wenn grün: Dein Bot läuft!
-
-### Schritt 6: OAuth-URLs aktualisieren
-Nachdem du die Render-URL hast (z.B. `https://training-coach-community.onrender.com`):
-
-1. Geh zu Suunto API Zone → Profile → OAuth Settings
-   - Ändere Redirect URI zu: `https://training-coach-community.onrender.com/suunto/callback`
-2. Geh zu Strava API Settings
-   - Ändere Redirect URI zu: `https://training-coach-community.onrender.com/strava/callback`
-3. Aktualisiere auf Render die Umgebungsvariable `OAUTH_BASE_URL` auf deine Render-URL
+1. Kopiere deine Render-URL (z.B. `https://training-coach-community.onrender.com`)
+2. Trag sie als `OAUTH_BASE_URL` in den Render Env-Vars ein
+3. Bei Suunto API Zone: Redirect URI auf `https://DEINE-URL.onrender.com/suunto/callback`
+4. Bei Strava API Settings: Authorization Callback Domain auf `DEINE-URL.onrender.com` (nur Domain, ohne https://)
 
 ## Fertig!
 
-Dein Bot läuft jetzt 24/7 auf Render mit HTTPS. Teste mit `/start` in Telegram.
+Teste mit `/start` in Telegram.
 
-## Wichtig zu wissen
+## Gut zu wissen
 
-- Render Free Tier: Der Service schläft nach 15 Min Inaktivität ein und braucht ~30 Sek zum Aufwachen
-- Die SQLite-Datenbank wird bei jedem Redeploy zurückgesetzt (Render hat kein persistentes Filesystem im Free Tier)
-- Für persistente Daten: Render Disk ($0.25/GB/Monat) oder externe DB (z.B. Supabase Free Tier)
+- Render Free Tier schläft nach Inaktivität ein — erste Antwort kann bis zu 50 Sekunden dauern
+- SQLite-Datenbank wird bei Redeploy zurückgesetzt (Render hat kein persistentes Filesystem im Free Tier)
+- Für persistente Daten: Render Disk oder externe DB (z.B. Supabase Free Tier)

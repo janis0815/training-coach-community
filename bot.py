@@ -554,8 +554,9 @@ async def anleitung(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• Apple Watch → /strava (wenn Strava genutzt wird)\n\n"
         "⚡ *Gut zu wissen:*\n"
         "Dieser Bot läuft auf kostenlosen Servern. "
-        "Wenn du zu viele Nachrichten auf einmal schickst, "
-        "kann es kurz dauern bis ich antworte. Einfach kurz warten. 😊\n\n"
+        "Wenn du ihn eine Weile nicht benutzt hast, schläft er ein — "
+        "die erste Antwort kann dann bis zu 50 Sekunden dauern. "
+        "Danach geht's wieder flott. 😊\n\n"
         "Sonntag 18:00 erinnere ich dich automatisch an deinen neuen Wochenplan!",
         parse_mode="Markdown",
     )
