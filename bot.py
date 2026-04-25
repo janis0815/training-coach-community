@@ -650,7 +650,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply, done = process_setup_input(user, text)
         if done:
             _awaiting_plan_data.discard(chat_id)
-        await update.message.reply_text(reply, parse_mode="Markdown")
+        try:
+            await update.message.reply_text(reply, parse_mode="Markdown")
+        except Exception:
+            await update.message.reply_text(reply)
         return
 
     # Rate-Limiting (3 Ebenen: User, Global/Minute, Global/Tag)
