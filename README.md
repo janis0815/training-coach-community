@@ -9,6 +9,8 @@ Ein Telegram-Bot für mehrere User, der individuelle Wochenpläne erstellt. Mit 
 | 🤖 KI-Coach | Individuelle Wochenpläne mit konkreten Sessions | Groq (Llama 3.3 70B) | Kostenlos |
 | ⌚ Suunto | Workouts + Schlaf + Recovery automatisch | Suunto Cloud API | Kostenlos |
 | 🔗 Strava | Workouts automatisch abrufen | Strava API | Kostenlos |
+| ⌚ COROS | Via Strava (direkte API wird beantragt) | Strava API | Kostenlos |
+| 🚴 Sigma ROX | Via Strava (Sigma Ride → Strava) | Strava API | Kostenlos |
 | 🌤️ Wetter | 7-Tage Vorhersage für deinen Standort | Open-Meteo | Kostenlos |
 | 🚴 Rad-Events | RTF, CTF, Gravelrides in deiner Nähe | rad-net.de | Kostenlos |
 | 🏊 Schwimmbäder | Öffnungszeiten Hannover | Lokale Daten | Kostenlos |
@@ -123,6 +125,19 @@ python bot.py
 4. Bot erstellt detaillierten Wochenplan mit konkreten Sessions
 5. Zwischen den Plänen: Einfach Fragen stellen, Bot nutzt geschätzte Werte
 6. Sonntag 18:00: Automatische Erinnerung an den neuen Wochenplan
+
+## Unterstützte Geräte
+
+| Gerät | Anbindung | Wie verbinden? |
+|-------|-----------|---------------|
+| Suunto (alle Modelle) | Direkte API | /suunto im Chat |
+| Garmin (alle Modelle) | Via Strava | Garmin Connect → Strava, dann /strava |
+| COROS (alle Modelle) | Via Strava | COROS App → Strava, dann /strava |
+| Sigma ROX | Via Strava | Sigma Ride App → Strava, dann /strava |
+| Apple Watch | Via Strava | Strava App nutzen, dann /strava |
+| Andere | Manuell | Daten bei /plan eingeben |
+
+**Sigma ROX Hinweis**: Sigma hat keine öffentliche API. Verbinde die Sigma Ride App mit Strava (Einstellungen → Verbundene Apps → Strava), dann werden deine Fahrten automatisch synchronisiert.
 
 ## Dateien
 

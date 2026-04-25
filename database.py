@@ -38,7 +38,7 @@ def init_db():
             plz TEXT DEFAULT '',
             umkreis INTEGER DEFAULT 20,
             setup_complete INTEGER DEFAULT 0,
-            setup_step TEXT DEFAULT 'name',
+            setup_step TEXT DEFAULT 'privacy',
             extra_notes TEXT DEFAULT ''
         )""")
         c.execute("""CREATE TABLE IF NOT EXISTS training_logs (
@@ -57,6 +57,7 @@ def init_db():
             ("suunto_refresh_token", "TEXT DEFAULT ''"),
             ("suunto_token_expires", "INTEGER DEFAULT 0"),
             ("suunto_username", "TEXT DEFAULT ''"),
+            ("privacy_accepted", "INTEGER DEFAULT 0"),
         ]:
             try:
                 c.execute(f"ALTER TABLE users ADD COLUMN {col} {typedef}")
@@ -109,6 +110,13 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (chat_id) REFERENCES users(chat_id)
         )""")
+        c.execute("""CREATE TABLE IF NOT EXISTS feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id INTEGER,
+            text TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (chat_id) REFERENCES users(chat_id)
+        )""")
 
 
 def get_user(chat_id: int) -> dict | None:
@@ -132,7 +140,7 @@ _ALLOWED_USER_COLUMNS = {
     "watch", "data_source", "strava_access_token", "strava_refresh_token",
     "strava_token_expires", "city", "plz", "umkreis", "setup_complete",
     "setup_step", "extra_notes", "suunto_access_token", "suunto_refresh_token",
-    "suunto_token_expires", "suunto_username",
+    "suunto_token_expires", "suunto_username", "privacy_accepted",
 }
 
 
@@ -396,3 +404,12 @@ def get_all_active_users() -> list[dict]:
             "SELECT chat_id, name FROM users WHERE setup_complete = 1"
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+def save_feedback(chat_id: int, feedback: str):
+    """Speichert User-Feedback."""
+    with _conn() as c:
+        c.execute(
+            "INSERT INTO feedback (chat_id, text) VALUES (?, ?)",
+            (chat_id, feedback),
+        )

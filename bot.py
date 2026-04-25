@@ -12,7 +12,7 @@ from telegram.ext import (
     filters,
 )
 from coach import CoachAI
-from database import init_db, get_user, create_user, update_user, save_training_log, get_suunto_tokens, get_recent_suunto_sleep, get_recent_suunto_recovery, get_recent_logs, delete_user_data, export_user_data, get_all_active_users
+from database import init_db, get_user, create_user, update_user, save_training_log, get_suunto_tokens, get_recent_suunto_sleep, get_recent_suunto_recovery, get_recent_logs, delete_user_data, export_user_data, get_all_active_users, save_feedback
 from onboarding import get_setup_message, process_setup_input, AVAILABLE_SPORTS, SPORT_EMOJIS, SPORT_LABELS, WATCH_LABELS, DATA_SOURCE_LABELS
 from prompts import build_full_prompt, build_chat_prompt, build_data_request, WEEKLY_CHECK_IN_PROMPT
 from schwimmbaeder import get_offene_baeder, ist_freibad_saison, WOCHENTAGE
@@ -181,7 +181,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         create_user(chat_id)
         user = get_user(chat_id)
-        msg = get_setup_message("name", user)
+        msg = get_setup_message("privacy", user)
         await update.message.reply_text(msg, parse_mode="Markdown")
 
 
@@ -528,6 +528,8 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/standort — PLZ setzen (für lokales Wetter)\n"
         "/export — Deine Daten exportieren\n"
         "/delete — Alle Daten löschen\n"
+        "/anleitung — Anleitung nochmal anzeigen\n"
+        "/feedback — Feedback geben\n"
         "/reset — Konversation zurücksetzen\n"
         "/help — Diese Hilfe\n\n"
         "💬 *Oder schreib mir einfach!*\n"
@@ -535,6 +537,48 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "und deinen Wochenplan anpassen.",
         parse_mode="Markdown",
     )
+
+
+async def anleitung(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "📖 *Kurzanleitung*\n\n"
+        "1️⃣ /plan — Schick mir deine Trainingsdaten und ich baue dir einen Wochenplan\n"
+        "2️⃣ Zwischen den Plänen kannst du mir einfach Fragen stellen\n"
+        "3️⃣ /checkin — Midweek Update, damit ich den Plan anpassen kann\n"
+        "4️⃣ /suunto oder /strava — Verbinde deine Uhr für automatische Daten\n\n"
+        "📱 *Geräte verbinden:*\n"
+        "• Suunto → /suunto (direkte API)\n"
+        "• Garmin → /strava (Garmin Connect → Strava)\n"
+        "• COROS → /strava (COROS App → Strava)\n"
+        "• Sigma ROX → /strava (Sigma Ride App → Strava)\n"
+        "• Apple Watch → /strava (wenn Strava genutzt wird)\n\n"
+        "⚡ *Gut zu wissen:*\n"
+        "Dieser Bot läuft auf kostenlosen Servern. "
+        "Wenn du zu viele Nachrichten auf einmal schickst, "
+        "kann es kurz dauern bis ich antworte. Einfach kurz warten. 😊\n\n"
+        "Sonntag 18:00 erinnere ich dich automatisch an deinen neuen Wochenplan!",
+        parse_mode="Markdown",
+    )
+
+
+async def feedback_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    user = get_user(chat_id)
+    if not user:
+        await update.message.reply_text("Bitte zuerst /start!")
+        return
+
+    args = update.message.text.split(maxsplit=1)
+    if len(args) > 1 and len(args[1].strip()) > 0:
+        text = args[1].strip()[:500]
+        save_feedback(chat_id, text)
+        await update.message.reply_text("🙏 Danke für dein Feedback!")
+    else:
+        await update.message.reply_text(
+            "💬 Schreib dein Feedback direkt hinter den Befehl:\n"
+            "`/feedback Das und das finde ich gut/schlecht`",
+            parse_mode="Markdown",
+        )
 
 
 async def export_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -597,7 +641,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not user:
         create_user(chat_id)
         user = get_user(chat_id)
-        msg = get_setup_message("name", user)
+        msg = get_setup_message("privacy", user)
         await update.message.reply_text(msg, parse_mode="Markdown")
         return
 
@@ -751,6 +795,8 @@ def main():
     app.add_handler(CommandHandler("reset", reset))
     app.add_handler(CommandHandler("export", export_cmd))
     app.add_handler(CommandHandler("delete", delete_cmd))
+    app.add_handler(CommandHandler("anleitung", anleitung))
+    app.add_handler(CommandHandler("feedback", feedback_cmd))
     app.add_handler(CommandHandler("help", help_cmd))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 

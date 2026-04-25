@@ -25,12 +25,14 @@ SPORT_LABELS = {
     "faszienrolle": "Faszienrolle",
 }
 
-WATCH_OPTIONS = {"1": "suunto", "2": "garmin", "3": "apple_watch", "4": "manuell"}
+WATCH_OPTIONS = {"1": "suunto", "2": "garmin", "3": "coros", "4": "apple_watch", "5": "sigma", "6": "manuell"}
 
 WATCH_LABELS = {
     "suunto": "⌚ Suunto",
     "garmin": "⌚ Garmin",
+    "coros": "⌚ COROS",
     "apple_watch": "⌚ Apple Watch",
+    "sigma": "🚴 Sigma (ROX)",
     "manuell": "📝 Keine Uhr",
 }
 
@@ -43,8 +45,20 @@ DATA_SOURCE_LABELS = {
 
 
 def get_setup_message(step: str, user: dict) -> str:
+    if step == "privacy":
+        return (
+            "Hey! 👋 Willkommen beim Training Coach!\n\n"
+            "Bevor wir loslegen, kurz zum Datenschutz:\n\n"
+            "📋 Ich speichere deinen Namen, Sportarten und Trainingsdaten.\n"
+            "🤖 Deine Nachrichten werden von einer KI (Groq) verarbeitet — nichts wird dort dauerhaft gespeichert.\n"
+            "🔗 Suunto/Strava-Daten nur wenn du dich verbindest.\n"
+            "🗑️ Du kannst jederzeit alles löschen mit /delete.\n"
+            "📦 Deine Daten exportieren mit /export.\n\n"
+            "Schreib `ja` um zuzustimmen."
+        )
+
     if step == "name":
-        return "Hey! 👋 Willkommen beim Training Coach!\n\nWie heißt du?"
+        return "Cool! 🎉 Wie heißt du?"
 
     if step == "watch":
         return (
@@ -52,8 +66,10 @@ def get_setup_message(step: str, user: dict) -> str:
             "Welche Uhr/Tracker nutzt du?\n\n"
             "1. ⌚ Suunto\n"
             "2. ⌚ Garmin\n"
-            "3. ⌚ Apple Watch\n"
-            "4. 📝 Keine Uhr / anderer Tracker\n\n"
+            "3. ⌚ COROS\n"
+            "4. ⌚ Apple Watch\n"
+            "5. 🚴 Sigma (ROX Fahrradcomputer)\n"
+            "6. 📝 Keine Uhr / anderer Tracker\n\n"
             "Schick mir die Nummer."
         )
 
@@ -182,6 +198,12 @@ def process_setup_input(user: dict, text: str) -> tuple[str, bool]:
     step = user["setup_step"]
     chat_id = user["chat_id"]
 
+    if step == "privacy":
+        if text.strip().lower() == "ja":
+            update_user(chat_id, privacy_accepted=1, setup_step="name")
+            return get_setup_message("name", user), False
+        return "Bitte schreib `ja` um den Datenschutzhinweis zu akzeptieren.", False
+
     if step == "name":
         name = text.strip()
         if not name or len(name) > MAX_NAME_LENGTH:
@@ -193,7 +215,7 @@ def process_setup_input(user: dict, text: str) -> tuple[str, bool]:
     if step == "watch":
         choice = text.strip()
         if choice not in WATCH_OPTIONS:
-            return "❌ Bitte schick mir eine Nummer (1-4).", False
+            return "❌ Bitte schick mir eine Nummer (1-6).", False
 
         watch = WATCH_OPTIONS[choice]
         update_user(chat_id, watch=watch)
@@ -235,6 +257,25 @@ def process_setup_input(user: dict, text: str) -> tuple[str, bool]:
             elif watch == "apple_watch":
                 update_user(chat_id, setup_step="data_source_apple")
                 return get_setup_message("data_source_apple", user), False
+            elif watch == "coros":
+                # COROS → direkt Strava empfehlen (API wird beantragt)
+                update_user(chat_id, data_source="strava", setup_step="sports")
+                return (
+                    "⌚ COROS synchronisiert automatisch mit Strava!\n\n"
+                    "Stelle sicher, dass in der COROS App unter Profil → Drittanbieter → Strava aktiviert ist.\n"
+                    "Verbinde dann Strava mit /strava nach dem Setup.\n\n"
+                    + get_setup_message("sports", user)
+                ), False
+            elif watch == "sigma":
+                # Sigma hat keine API → Strava empfehlen
+                update_user(chat_id, data_source="strava", setup_step="sports")
+                return (
+                    "🚴 Sigma ROX hat leider keine direkte API.\n\n"
+                    "Aber: Verbinde die Sigma Ride App mit Strava, dann holen wir die Daten automatisch von dort!\n"
+                    "In der Sigma Ride App: Einstellungen → Verbundene Apps → Strava aktivieren.\n"
+                    "Verbinde dann Strava mit /strava nach dem Setup.\n\n"
+                    + get_setup_message("sports", user)
+                ), False
 
     if step == "data_source_suunto":
         choice = text.strip()
@@ -390,14 +431,14 @@ def _build_profile_summary(chat_id: int) -> str:
         summary += f"🚴 **Rad-Events:** PLZ {user['plz']}, Umkreis {user.get('umkreis', 20)}km\n"
 
     summary += (
-        "\n**Befehle:**\n"
+        "\n⚡ *Dieser Bot läuft auf kostenlosen Servern — "
+        "bei zu vielen Nachrichten auf einmal einfach kurz warten.*\n\n"
+        "**Befehle:**\n"
         "/plan — Neuen Wochenplan starten\n"
         "/checkin — Midweek Check-in\n"
-        "/profil — Dein Profil anzeigen\n"
-        "/sportarten — Sportarten ändern\n"
-        "/schwimmen — Offene Bäder heute\n"
-        "/standort — PLZ setzen (lokales Wetter)\n"
-        "/reset — Konversation zurücksetzen\n\n"
-        "Oder schreib mir einfach! 🚀"
+        "/anleitung — Kurzanleitung\n"
+        "/feedback — Feedback geben\n"
+        "/help — Alle Befehle\n\n"
+        "Los geht's! Schick /plan für deinen ersten Wochenplan 🚀"
     )
     return summary
