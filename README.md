@@ -14,7 +14,8 @@ Ein Telegram-Bot für mehrere User, der individuelle Wochenpläne erstellt. Mit 
 | 🌤️ Wetter | 7-Tage Vorhersage für deinen Standort | Open-Meteo | Kostenlos |
 | 🚴 Rad-Events | RTF, CTF, Gravelrides in deiner Nähe | rad-net.de | Kostenlos |
 | 🏊 Schwimmbäder | Öffnungszeiten Hannover | Lokale Daten | Kostenlos |
-| 📊 Schätzwerte | TSS/CTL/ATL/TSB zwischen den Plänen | Eigene Berechnung | — |
+| �️ Routenvorschläge | Komoot-Links für Rad/Lauf im Plan | Komoot | Kostenlos |
+| �📊 Schätzwerte | TSS/CTL/ATL/TSB zwischen den Plänen | Eigene Berechnung | — |
 | 👥 Multi-User | Jeder User hat sein eigenes Profil | SQLite | — |
 | 👥 Community | Anonymisierte Insights anderer Athleten | SQLite | — |
 | ⏰ Reminders | Wöchentliche Erinnerung an /plan (So 18:00) | Eingebaut | — |
@@ -104,7 +105,7 @@ Siehe `DEPLOY.md` für die Schritt-für-Schritt Anleitung.
 5. Zwischen den Plänen: Einfach Fragen stellen, Bot nutzt geschätzte Werte
 6. Sonntag 18:00: Automatische Erinnerung an den neuen Wochenplan
 
-Der Coach berücksichtigt automatisch das Wetter (kein Outdoor bei Regen) und schlägt Rad-Events als Trainingseinheit vor.
+Der Coach berücksichtigt automatisch das Wetter (kein Outdoor bei Regen), schlägt Rad-Events als Trainingseinheit vor und fügt bei Outdoor-Einheiten passende Komoot-Routenvorschläge ein.
 
 ## Dateien
 

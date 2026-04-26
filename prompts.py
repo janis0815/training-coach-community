@@ -94,6 +94,29 @@ Freibad-Saison: 14.05.-13.09.2026. Bei Schwimmeinheiten Bäder + Zeiten vorschla
     if user["extra_notes"]:
         parts.append(f"\n## 📝 BESONDERHEITEN\n{user['extra_notes']}")
 
+    # Routenvorschläge via Komoot
+    plz = user.get("plz", "")
+    if plz and any(s in user["sports"] for s in ["laufen", "radfahren"]):
+        from wetter import geocode_plz
+        geo = geocode_plz(plz) if plz else None
+        if geo:
+            lat, lon, city = geo
+            parts.append(f"""
+## 🗺️ ROUTENVORSCHLÄGE (Komoot)
+Bei Outdoor-Einheiten (Laufen, Radfahren) füge einen Komoot-Routenvorschlag hinzu.
+Standort: {city} ({lat}, {lon})
+
+Nutze diese Link-Formate:
+- Rennrad: https://www.komoot.com/discover/{city}/@{lat},{lon}/tours?sport=racebike
+- Gravel: https://www.komoot.com/discover/{city}/@{lat},{lon}/tours?sport=touringbicycle
+- MTB: https://www.komoot.com/discover/{city}/@{lat},{lon}/tours?sport=mtb
+- Laufen: https://www.komoot.com/discover/{city}/@{lat},{lon}/tours?sport=jogging
+- Trail Running: https://www.komoot.com/discover/{city}/@{lat},{lon}/tours?sport=jogging
+
+Füge bei JEDER Outdoor-Einheit im Plan einen passenden Link hinzu:
+🗺️ Routenvorschläge: [Link]
+Wähle die Sportart passend zur Einheit.""")
+
     # Community Insights (anonymisierte Daten anderer Athleten)
     try:
         insights = get_community_insights(limit=5)

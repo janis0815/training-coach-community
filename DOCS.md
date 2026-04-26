@@ -114,6 +114,14 @@ Zwischen den Wochenplänen schätzt der Bot aktuelle Werte:
 - **Freibad-Saison**: 14.05. - 13.09.2026
 - **Sanierungen**: Nord-Ost-Bad bis Frühjahr 2027 geschlossen
 
+### 🗺️ Routenvorschläge (via Komoot)
+
+- **Methode**: Komoot Discover-Links im Coach-Prompt
+- **Keine API nötig**: Links werden direkt generiert basierend auf PLZ → Koordinaten
+- **Sportarten**: Rennrad, Gravel, MTB, Laufen, Trail Running
+- **Integration**: Der Coach fügt bei jeder Outdoor-Einheit im Plan einen passenden Komoot-Link ein
+- **Voraussetzung**: User hat PLZ gesetzt (via Onboarding oder /standort)
+
 ### ⏰ Scheduled Reminders
 
 - **Zeitpunkt**: Sonntag 18:00 UTC
