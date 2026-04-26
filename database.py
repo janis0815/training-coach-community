@@ -59,6 +59,9 @@ def init_db():
             ("suunto_token_expires", "INTEGER DEFAULT 0"),
             ("suunto_username", "TEXT DEFAULT ''"),
             ("privacy_accepted", "INTEGER DEFAULT 0"),
+            ("injuries", "TEXT DEFAULT ''"),
+            ("competition_date", "TEXT DEFAULT ''"),
+            ("competition_name", "TEXT DEFAULT ''"),
         ]:
             try:
                 c.execute(f"ALTER TABLE users ADD COLUMN {col} {typedef}")
@@ -142,6 +145,7 @@ _ALLOWED_USER_COLUMNS = {
     "strava_token_expires", "city", "plz", "umkreis", "setup_complete",
     "setup_step", "extra_notes", "suunto_access_token", "suunto_refresh_token",
     "suunto_token_expires", "suunto_username", "privacy_accepted",
+    "injuries", "competition_date", "competition_name",
 }
 
 

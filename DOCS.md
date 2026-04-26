@@ -136,6 +136,34 @@ Zwischen den Wochenplänen schätzt der Bot aktuelle Werte:
 - **Speicherung**: In SQLite feedback-Tabelle
 - **Längenlimit**: 500 Zeichen
 
+### 🤕 Verletzungs-Tracking
+
+- **Befehl**: `/verletzung Knie rechts, leichte Schmerzen`
+- **Entfernen**: `/verletzung keine`
+- **Integration**: Verletzung wird in den Coach-Prompt eingebaut — der Coach passt den Plan automatisch an (betroffene Region nicht belasten, Alternativen vorschlagen)
+- **Längenlimit**: 200 Zeichen
+
+### 🏁 Wettkampf-Countdown
+
+- **Befehl**: `/wettkampf Halbmarathon 15.06.2026`
+- **Entfernen**: `/wettkampf keine`
+- **Integration**: Coach richtet die Periodisierung auf den Wettkampf aus (BASE → BUILD → PEAK → TAPER)
+- **Countdown**: Zeigt verbleibende Tage an
+
+### 📈 Trainingsfortschritt (charts.py)
+
+- **Befehl**: `/fortschritt`
+- **Grafik**: TSS, CTL, ATL als Linien + TSB als Balken (grün/rot)
+- **Bibliothek**: matplotlib (non-interactive Agg backend)
+- **Daten**: Aus den letzten 12 Training-Logs
+- **Voraussetzung**: Mindestens 2 Wochenpläne mit TSS/CTL-Daten
+
+### 🖱️ Inline-Keyboards
+
+- Datenschutz-Zustimmung: Button statt Texteingabe
+- Uhr-Auswahl: 6 Buttons statt Nummern
+- Datenquelle: Manuell/Automatisch als Buttons
+
 ---
 
 ## Integrationen
@@ -418,6 +446,7 @@ training-coach-community/
 ├── onboarding.py          # Interaktives Setup mit Datenschutz
 ├── prompts.py             # System-Prompts + Community Insights
 ├── estimator.py           # TSS/CTL/ATL/TSB Schätzung
+├── charts.py              # Trainingsfortschritt-Grafiken (matplotlib)
 ├── suunto.py              # Suunto API (OAuth, Workouts, Webhooks)
 ├── strava.py              # Strava API (OAuth, Aktivitäten)
 ├── oauth_server.py        # OAuth-Callbacks + Webhooks (HTTPS)

@@ -94,6 +94,37 @@ Freibad-Saison: 14.05.-13.09. Bei Schwimmeinheiten Bäder + Zeiten vorschlagen.
     if user["extra_notes"]:
         parts.append(f"\n## 📝 BESONDERHEITEN\n{user['extra_notes']}")
 
+    # Verletzungen
+    injuries = user.get("injuries", "")
+    if injuries:
+        parts.append(f"""
+## 🤕 AKTUELLE VERLETZUNG: {injuries}
+WICHTIG: Passe den Trainingsplan an diese Verletzung an!
+- Betroffene Körperregion NICHT belasten
+- Alternative Übungen vorschlagen
+- Bei Schmerzen: Session streichen und Recovery einplanen
+- Hinweis bei jeder betroffenen Session geben""")
+
+    # Wettkampf-Ziel
+    comp_name = user.get("competition_name", "")
+    comp_date = user.get("competition_date", "")
+    if comp_name and comp_date:
+        from datetime import datetime
+        try:
+            target = datetime.strptime(comp_date, "%d.%m.%Y")
+            days_left = (target - datetime.now()).days
+            if days_left > 0:
+                parts.append(f"""
+## 🏁 WETTKAMPF-ZIEL: {comp_name} am {comp_date} (noch {days_left} Tage)
+Periodisierung auf diesen Wettkampf ausrichten:
+- >8 Wochen: BASE Phase (Grundlagen aufbauen)
+- 4-8 Wochen: BUILD Phase (Intensität steigern)
+- 2-4 Wochen: PEAK Phase (Wettkampfspezifisch)
+- <2 Wochen: TAPER Phase (Umfang reduzieren, Frische aufbauen)
+- Wettkampfwoche: Nur leichte Aktivierung, kein hartes Training""")
+        except ValueError:
+            pass
+
     # Routenvorschläge via Komoot
     plz = user.get("plz", "")
     if plz and any(s in user["sports"] for s in ["laufen", "radfahren"]):

@@ -3,11 +3,12 @@ import time
 import logging
 from datetime import date
 from dotenv import load_dotenv
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     MessageHandler,
+    CallbackQueryHandler,
     ContextTypes,
     filters,
 )
@@ -181,8 +182,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         create_user(chat_id)
         user = get_user(chat_id)
-        msg = get_setup_message("privacy", user)
-        await update.message.reply_text(msg, parse_mode="Markdown")
+        keyboard = [[InlineKeyboardButton("✅ Ja, ich stimme zu", callback_data="privacy_accept")]]
+        await update.message.reply_text(
+            get_setup_message("privacy", user),
+            reply_markup=InlineKeyboardMarkup(keyboard),
+        )
 
 
 async def plan(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -498,6 +502,9 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/delete — Alle Daten löschen\n"
         "/anleitung — Anleitung nochmal anzeigen\n"
         "/feedback — Feedback geben\n"
+        "/verletzung — Verletzung melden\n"
+        "/wettkampf — Wettkampf-Ziel setzen\n"
+        "/fortschritt — Trainingsfortschritt als Grafik\n"
         "/reset — Konversation zurücksetzen\n"
         "/help — Diese Hilfe\n\n"
         "💬 *Oder schreib mir einfach!*\n"
@@ -604,6 +611,107 @@ async def delete_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+async def verletzung_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Verletzung melden oder Status anzeigen."""
+    chat_id = update.effective_chat.id
+    user = get_user(chat_id)
+    if not user or not user.get("setup_complete"):
+        await update.message.reply_text("Bitte zuerst /start!")
+        return
+
+    args = update.message.text.split(maxsplit=1)
+    if len(args) > 1:
+        text = args[1].strip()
+        if text.lower() in ("keine", "geheilt", "nein", "weg", "reset"):
+            update_user(chat_id, injuries="")
+            await update.message.reply_text("✅ Verletzung entfernt! Du bist wieder fit. 💪")
+        else:
+            injury = text[:200]
+            update_user(chat_id, injuries=injury)
+            await update.message.reply_text(
+                f"🤕 Verletzung gespeichert: {injury}\n\n"
+                "Der Coach berücksichtigt das bei deinem nächsten Plan.\n"
+                "Wenn du wieder fit bist: /verletzung keine",
+            )
+    else:
+        current = user.get("injuries", "")
+        if current:
+            await update.message.reply_text(f"🤕 Aktuelle Verletzung: {current}\n\nEntfernen mit /verletzung keine")
+        else:
+            await update.message.reply_text("Keine Verletzung eingetragen.\n\nMelde eine mit: /verletzung Knie rechts, leichte Schmerzen")
+
+
+async def fortschritt_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Zeigt Trainingsfortschritt als Grafik."""
+    chat_id = update.effective_chat.id
+    user = get_user(chat_id)
+    if not user or not user.get("setup_complete"):
+        await update.message.reply_text("Bitte zuerst /start!")
+        return
+
+    logs = get_recent_logs(chat_id, limit=12)
+    if len(logs) < 2:
+        await update.message.reply_text("📊 Noch nicht genug Daten für eine Grafik. Erstelle mindestens 2 Wochenpläne mit /plan.")
+        return
+
+    from charts import generate_progress_chart
+    chart = generate_progress_chart(logs)
+    if chart:
+        await update.message.reply_photo(photo=chart, caption="📊 Dein Trainingsfortschritt (TSS, CTL, ATL, TSB)")
+    else:
+        await update.message.reply_text("📊 Konnte keine Grafik erstellen. Prüfe ob deine Pläne TSS/CTL-Daten enthalten.")
+
+
+async def wettkampf_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Wettkampf-Ziel setzen oder anzeigen."""
+    chat_id = update.effective_chat.id
+    user = get_user(chat_id)
+    if not user or not user.get("setup_complete"):
+        await update.message.reply_text("Bitte zuerst /start!")
+        return
+
+    args = update.message.text.split(maxsplit=1)
+    if len(args) > 1:
+        text = args[1].strip()
+        if text.lower() in ("keine", "nein", "reset", "löschen"):
+            update_user(chat_id, competition_date="", competition_name="")
+            await update.message.reply_text("✅ Wettkampf-Ziel entfernt.")
+        else:
+            import re
+            date_match = re.search(r"(\d{1,2}\.\d{1,2}\.\d{4})", text)
+            if date_match:
+                comp_date = date_match.group(1)
+                comp_name = text.replace(comp_date, "").strip()[:100]
+                update_user(chat_id, competition_date=comp_date, competition_name=comp_name)
+                from datetime import datetime
+                try:
+                    target = datetime.strptime(comp_date, "%d.%m.%Y")
+                    days_left = (target - datetime.now()).days
+                    countdown = f"Noch {days_left} Tage!" if days_left > 0 else "Heute ist es soweit!"
+                except ValueError:
+                    countdown = ""
+                await update.message.reply_text(
+                    f"🏁 Wettkampf gespeichert: {comp_name} am {comp_date}\n"
+                    f"{countdown}\n\nDer Coach baut die Periodisierung darauf auf!",
+                )
+            else:
+                await update.message.reply_text("Bitte mit Datum angeben:\n/wettkampf Halbmarathon 15.06.2026")
+    else:
+        comp_name = user.get("competition_name", "")
+        comp_date = user.get("competition_date", "")
+        if comp_name and comp_date:
+            from datetime import datetime
+            try:
+                target = datetime.strptime(comp_date, "%d.%m.%Y")
+                days_left = (target - datetime.now()).days
+                countdown = f"Noch {days_left} Tage!" if days_left > 0 else "Vorbei!"
+            except ValueError:
+                countdown = ""
+            await update.message.reply_text(f"🏁 Ziel: {comp_name} am {comp_date}\n{countdown}\n\nÄndern mit /wettkampf Name Datum")
+        else:
+            await update.message.reply_text("Kein Wettkampf-Ziel gesetzt.\n\nSetze eins mit: /wettkampf Halbmarathon 15.06.2026")
+
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     text = update.message.text
@@ -620,10 +728,24 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply, done = process_setup_input(user, text)
         if done:
             _awaiting_plan_data.discard(chat_id)
-        try:
-            await update.message.reply_text(reply, parse_mode="Markdown")
-        except Exception:
-            await update.message.reply_text(reply)
+
+        # Nach Name-Eingabe: Uhr-Auswahl als Inline-Keyboard
+        next_user = get_user(chat_id)
+        if next_user and next_user["setup_step"] == "watch":
+            keyboard = [
+                [InlineKeyboardButton("⌚ Suunto", callback_data="watch_1")],
+                [InlineKeyboardButton("⌚ Garmin", callback_data="watch_2")],
+                [InlineKeyboardButton("⌚ COROS", callback_data="watch_3")],
+                [InlineKeyboardButton("⌚ Apple Watch", callback_data="watch_4")],
+                [InlineKeyboardButton("🚴 Sigma ROX", callback_data="watch_5")],
+                [InlineKeyboardButton("📝 Keine Uhr", callback_data="watch_6")],
+            ]
+            await update.message.reply_text(reply, reply_markup=InlineKeyboardMarkup(keyboard))
+        else:
+            try:
+                await update.message.reply_text(reply, parse_mode="Markdown")
+            except Exception:
+                await update.message.reply_text(reply)
         return
 
     # Rate-Limiting (3 Ebenen: User, Global/Minute, Global/Tag)
@@ -756,6 +878,59 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _send_reply(update, reply)
 
 
+async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler für alle Inline-Keyboard-Buttons."""
+    query = update.callback_query
+    await query.answer()
+    chat_id = query.message.chat_id
+    data = query.data
+
+    user = get_user(chat_id)
+    if not user:
+        return
+
+    # Datenschutz akzeptieren
+    if data == "privacy_accept":
+        update_user(chat_id, privacy_accepted=1, setup_step="name")
+        await query.edit_message_text("✅ Datenschutz akzeptiert!")
+        await query.message.reply_text(get_setup_message("name", user))
+
+    # Uhr-Auswahl
+    elif data.startswith("watch_"):
+        from onboarding import WATCH_OPTIONS
+        watch_num = data.replace("watch_", "")
+        if watch_num in WATCH_OPTIONS:
+            # Simuliere die Texteingabe
+            user["setup_step"] = "watch"
+            reply, done = process_setup_input(user, watch_num)
+            await query.edit_message_text(f"⌚ Auswahl gespeichert!")
+            try:
+                # Wenn nächster Schritt auch Buttons braucht
+                next_user = get_user(chat_id)
+                if next_user and next_user["setup_step"] == "sports":
+                    await query.message.reply_text(reply)
+                elif next_user and next_user["setup_step"] == "data_mode":
+                    keyboard = [
+                        [InlineKeyboardButton("📝 Manuell", callback_data="datamode_1")],
+                        [InlineKeyboardButton("🔗 Automatisch", callback_data="datamode_2")],
+                    ]
+                    await query.message.reply_text(reply, reply_markup=InlineKeyboardMarkup(keyboard))
+                else:
+                    await query.message.reply_text(reply)
+            except Exception:
+                await query.message.reply_text(reply)
+
+    # Datenquelle-Auswahl
+    elif data.startswith("datamode_"):
+        num = data.replace("datamode_", "")
+        reply, done = process_setup_input(user, num)
+        await query.edit_message_text("📊 Auswahl gespeichert!")
+        try:
+            await query.message.reply_text(reply)
+        except Exception:
+            await query.message.reply_text(reply)
+
+
 async def _send_reply(update: Update, reply: str):
     """Sendet Antwort mit Markdown. Fällt auf Plain-Text zurück bei Parse-Fehlern."""
     chunks = [reply[i : i + 4096] for i in range(0, len(reply), 4096)]
@@ -810,7 +985,11 @@ def main():
     app.add_handler(CommandHandler("delete", delete_cmd))
     app.add_handler(CommandHandler("anleitung", anleitung))
     app.add_handler(CommandHandler("feedback", feedback_cmd))
+    app.add_handler(CommandHandler("verletzung", verletzung_cmd))
+    app.add_handler(CommandHandler("wettkampf", wettkampf_cmd))
+    app.add_handler(CommandHandler("fortschritt", fortschritt_cmd))
     app.add_handler(CommandHandler("help", help_cmd))
+    app.add_handler(CallbackQueryHandler(button_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     logger.info("Community Coach Bot gestartet! 🚀")

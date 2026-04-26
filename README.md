@@ -23,26 +23,32 @@ Komplett kostenlos. Läuft auf Render, powered by Groq (Llama 3.3 70B).
 | 👥 Multi-User | Jeder User hat sein eigenes Profil | SQLite | — |
 | 👥 Community | Anonymisierte Insights anderer Athleten | SQLite | — |
 | ⏰ Reminders | Wöchentliche Erinnerung an /plan (So 18:00) | Eingebaut | — |
+| 🤕 Verletzungen | Coach passt Plan an gemeldete Verletzungen an | Eingebaut | — |
+| 🏁 Wettkampf | Periodisierung auf Wettkampf-Ziel ausrichten | Eingebaut | — |
+| 📈 Fortschritt | TSS/CTL/ATL/TSB-Verlauf als Grafik | matplotlib | — |
 | 🔒 GDPR | Daten exportieren und löschen | Eingebaut | — |
 
 ## Befehle im Telegram-Chat
 
 ```
-/start      — Bot starten / Profil einrichten
-/plan       — Neuen Wochenplan erstellen
-/checkin    — Midweek Check-in
-/profil     — Dein Profil anzeigen
-/sportarten — Sportarten ändern
-/strava     — Strava verbinden
-/suunto     — Suunto verbinden
-/schwimmen  — Offene Bäder heute
-/standort   — PLZ setzen (für lokales Wetter)
-/anleitung  — Kurzanleitung anzeigen
-/feedback   — Feedback geben
-/export     — Alle deine Daten exportieren (GDPR)
-/delete     — Alle deine Daten löschen (GDPR)
-/reset      — Konversation zurücksetzen
-/help       — Hilfe anzeigen
+/start       — Bot starten / Profil einrichten
+/plan        — Neuen Wochenplan erstellen
+/checkin     — Midweek Check-in
+/profil      — Dein Profil anzeigen
+/sportarten  — Sportarten ändern
+/strava      — Strava verbinden
+/suunto      — Suunto verbinden
+/schwimmen   — Offene Bäder heute
+/standort    — PLZ setzen (für lokales Wetter)
+/verletzung  — Verletzung melden/entfernen
+/wettkampf   — Wettkampf-Ziel setzen
+/fortschritt — Trainingsfortschritt als Grafik
+/anleitung   — Kurzanleitung anzeigen
+/feedback    — Feedback geben
+/export      — Alle deine Daten exportieren (GDPR)
+/delete      — Alle deine Daten löschen (GDPR)
+/reset       — Konversation zurücksetzen
+/help        — Hilfe anzeigen
 ```
 
 ## Unterstützte Geräte
@@ -124,6 +130,8 @@ Der Coach berücksichtigt automatisch das Wetter (kein Outdoor bei Regen), schl�
 | `strava.py` | Strava API (OAuth, Aktivitäten) |
 | `oauth_server.py` | OAuth-Callback + Webhook-Server (HTTPS-fähig) |
 | `estimator.py` | Schätzt TSS/CTL/ATL/TSB zwischen Plänen |
+| `charts.py` | Trainingsfortschritt-Grafiken (matplotlib) |
+| `crypto.py` | Token-Verschlüsselung (Fernet/AES) |
 | `wetter.py` | Wetter-API (Open-Meteo, PLZ-basiert) |
 | `rad_events.py` | Rad-Events Scraper (rad-net.de) |
 | `schwimmbaeder.py` | Schwimmbad-Öffnungszeiten |
