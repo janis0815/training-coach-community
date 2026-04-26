@@ -420,3 +420,92 @@ def save_feedback(chat_id: int, feedback: str):
             "INSERT INTO feedback (chat_id, text) VALUES (?, ?)",
             (chat_id, feedback),
         )
+
+
+def find_training_partners(chat_id: int, plz: str, sports: list[str], limit: int = 5) -> list[dict]:
+    """Findet User mit ähnlichen Sportarten in der gleichen PLZ-Region."""
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT chat_id, name, sports, plz FROM users "
+            "WHERE setup_complete = 1 AND chat_id != ? AND plz != '' "
+            "ORDER BY created_at DESC",
+            (chat_id,),
+        ).fetchall()
+
+        matches = []
+        for row in rows:
+            d = dict(row)
+            d["sports"] = json.loads(d.get("sports", "[]"))
+            # PLZ-Nähe: Gleiche ersten 2 Ziffern = gleiche Region
+            if plz and d.get("plz", "")[:2] == plz[:2]:
+                common = set(sports) & set(d["sports"])
+                if common:
+                    d["common_sports"] = list(common)
+                    matches.append(d)
+                    if len(matches) >= limit:
+                        break
+        return matches
+
+
+def get_plan_streak(chat_id: int) -> int:
+    """Zählt aufeinanderfolgende Wochen mit Trainingsplan."""
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT week_start FROM training_logs WHERE chat_id = ? ORDER BY created_at DESC",
+            (chat_id,),
+        ).fetchall()
+
+    if not rows:
+        return 0
+
+    from datetime import datetime, timedelta
+    streak = 1
+    prev = None
+    for row in rows:
+        try:
+            dt = datetime.fromisoformat(row["week_start"].replace("Z", "+00:00")).replace(tzinfo=None) if "T" in row["week_start"] else datetime.strptime(row["week_start"], "%Y-%m-%d")
+        except (ValueError, TypeError):
+            continue
+        if prev is None:
+            prev = dt
+            continue
+        diff = (prev - dt).days
+        if 5 <= diff <= 9:  # Ungefähr eine Woche
+            streak += 1
+            prev = dt
+        else:
+            break
+    return streak
+
+
+def get_monthly_summary(chat_id: int) -> dict | None:
+    """Erstellt eine Monatszusammenfassung aus den Training-Logs."""
+    from datetime import datetime, timedelta
+    now = datetime.now()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT data_json, plan_json, created_at FROM training_logs "
+            "WHERE chat_id = ? AND created_at >= ? ORDER BY created_at",
+            (chat_id, month_start.isoformat()),
+        ).fetchall()
+
+    if not rows:
+        return None
+
+    from estimator import parse_metrics_from_text
+    total_plans = len(rows)
+    all_tss = []
+
+    for row in rows:
+        metrics = parse_metrics_from_text(row.get("data_json", ""))
+        if metrics.get("tss"):
+            all_tss.append(metrics["tss"])
+
+    return {
+        "monat": now.strftime("%B %Y"),
+        "anzahl_plaene": total_plans,
+        "total_tss": round(sum(all_tss), 1) if all_tss else 0,
+        "avg_tss": round(sum(all_tss) / len(all_tss), 1) if all_tss else 0,
+    }

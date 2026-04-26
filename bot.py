@@ -13,7 +13,7 @@ from telegram.ext import (
     filters,
 )
 from coach import CoachAI
-from database import init_db, get_user, create_user, update_user, save_training_log, get_suunto_tokens, get_recent_suunto_sleep, get_recent_suunto_recovery, get_recent_logs, delete_user_data, export_user_data, get_all_active_users, save_feedback
+from database import init_db, get_user, create_user, update_user, save_training_log, get_suunto_tokens, get_recent_suunto_sleep, get_recent_suunto_recovery, get_recent_logs, delete_user_data, export_user_data, get_all_active_users, save_feedback, find_training_partners, get_plan_streak, get_monthly_summary
 from onboarding import get_setup_message, process_setup_input, AVAILABLE_SPORTS, SPORT_EMOJIS, SPORT_LABELS, WATCH_LABELS, DATA_SOURCE_LABELS
 from prompts import build_full_prompt, build_chat_prompt, build_data_request, WEEKLY_CHECK_IN_PROMPT
 from schwimmbaeder import get_offene_baeder, ist_freibad_saison, WOCHENTAGE
@@ -505,6 +505,9 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/verletzung — Verletzung melden\n"
         "/wettkampf — Wettkampf-Ziel setzen\n"
         "/fortschritt — Trainingsfortschritt als Grafik\n"
+        "/partner — Trainingspartner in deiner Nähe\n"
+        "/streak — Dein Plan-Streak\n"
+        "/monat — Monatsrückblick\n"
         "/reset — Konversation zurücksetzen\n"
         "/help — Diese Hilfe\n\n"
         "💬 *Oder schreib mir einfach!*\n"
@@ -712,6 +715,79 @@ async def wettkampf_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Kein Wettkampf-Ziel gesetzt.\n\nSetze eins mit: /wettkampf Halbmarathon 15.06.2026")
 
 
+async def partner_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Trainingspartner in der Nähe finden."""
+    chat_id = update.effective_chat.id
+    user = get_user(chat_id)
+    if not user or not user.get("setup_complete"):
+        await update.message.reply_text("Bitte zuerst /start!")
+        return
+
+    plz = user.get("plz", "")
+    if not plz:
+        await update.message.reply_text("Setz zuerst deine PLZ mit /standort damit ich Partner in deiner Nähe finden kann.")
+        return
+
+    matches = find_training_partners(chat_id, plz, user.get("sports", []))
+    if not matches:
+        await update.message.reply_text("🤷 Noch keine Trainingspartner in deiner Nähe. Lade Freunde ein!")
+        return
+
+    from onboarding import SPORT_EMOJIS, SPORT_LABELS
+    lines = ["👥 Trainingspartner in deiner Nähe:\n"]
+    for m in matches:
+        common = ", ".join(f"{SPORT_EMOJIS.get(s, '')} {s}" for s in m["common_sports"])
+        lines.append(f"- {m['name']} (PLZ {m['plz']}): {common}")
+    lines.append("\nSchreib sie an und trainiert zusammen! 💪")
+    await update.message.reply_text("\n".join(lines))
+
+
+async def streak_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Zeigt den Plan-Streak an."""
+    chat_id = update.effective_chat.id
+    user = get_user(chat_id)
+    if not user or not user.get("setup_complete"):
+        await update.message.reply_text("Bitte zuerst /start!")
+        return
+
+    streak = get_plan_streak(chat_id)
+    if streak == 0:
+        await update.message.reply_text("Du hast noch keinen Wochenplan erstellt. Starte mit /plan!")
+    elif streak == 1:
+        await update.message.reply_text("📊 1 Wochenplan erstellt. Weiter so — nächste Woche wird's ein Streak! 💪")
+    elif streak < 4:
+        await update.message.reply_text(f"🔥 {streak} Wochen in Folge! Guter Start!")
+    elif streak < 8:
+        await update.message.reply_text(f"🔥🔥 {streak} Wochen in Folge! Du bist on fire!")
+    else:
+        await update.message.reply_text(f"🔥🔥🔥 {streak} Wochen in Folge! Absolute Maschine! 💪")
+
+
+async def monatsrueckblick_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Zeigt den Monatsrückblick."""
+    chat_id = update.effective_chat.id
+    user = get_user(chat_id)
+    if not user or not user.get("setup_complete"):
+        await update.message.reply_text("Bitte zuerst /start!")
+        return
+
+    summary = get_monthly_summary(chat_id)
+    if not summary:
+        await update.message.reply_text("📊 Noch keine Daten für diesen Monat. Erstelle einen Plan mit /plan!")
+        return
+
+    streak = get_plan_streak(chat_id)
+    text = (
+        f"📊 Monatsrückblick {summary['monat']}\n\n"
+        f"📋 Wochenpläne erstellt: {summary['anzahl_plaene']}\n"
+        f"⚡ Gesamt-TSS: {summary['total_tss']}\n"
+        f"📈 Durchschnitt TSS/Woche: {summary['avg_tss']}\n"
+        f"🔥 Aktueller Streak: {streak} Wochen\n\n"
+        "Weiter so! 💪"
+    )
+    await update.message.reply_text(text)
+
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     text = update.message.text
@@ -826,6 +902,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply = coach.chat(chat_id, enriched, system_prompt=full_prompt, use_full_model=True)
         save_training_log(chat_id, str(date.today()), text, reply)
         await _send_reply(update, reply)
+
+        # Streak anzeigen nach Plan
+        streak = get_plan_streak(chat_id)
+        if streak >= 2:
+            await update.message.reply_text(f"🔥 {streak} Wochen in Folge! Weiter so!")
 
         # Nach dem Plan: Wetter anzeigen
         try:
@@ -959,6 +1040,53 @@ async def weekly_plan_reminder(context: ContextTypes.DEFAULT_TYPE):
             logger.warning(f"Reminder für {user['chat_id']} fehlgeschlagen: {e}")
 
 
+async def monday_followup_reminder(context: ContextTypes.DEFAULT_TYPE):
+    """Montag 10:00 Nachfass — nur wenn seit Sonntag kein Plan erstellt wurde."""
+    from datetime import datetime, timedelta
+    yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+
+    users = get_all_active_users()
+    for user in users:
+        try:
+            logs = get_recent_logs(user["chat_id"], limit=1)
+            if logs:
+                last_date = logs[0].get("created_at", "")[:10]
+                # Wenn letzter Plan von gestern (Sonntag) oder heute → kein Reminder
+                if last_date >= yesterday:
+                    continue
+            await context.bot.send_message(
+                chat_id=user["chat_id"],
+                text=(
+                    f"Guten Morgen {user['name']}! ☀️\n\n"
+                    "Noch keinen Plan für diese Woche?\n"
+                    "Schick mir /plan — dauert nur 2 Minuten! 💪"
+                ),
+            )
+        except Exception as e:
+            logger.warning(f"Montag-Reminder für {user['chat_id']} fehlgeschlagen: {e}")
+
+
+async def monthly_review_job(context: ContextTypes.DEFAULT_TYPE):
+    """Sendet monatlichen Rückblick an alle aktiven User (1. des Monats)."""
+    users = get_all_active_users()
+    for user in users:
+        try:
+            summary = get_monthly_summary(user["chat_id"])
+            if summary and summary["anzahl_plaene"] > 0:
+                streak = get_plan_streak(user["chat_id"])
+                text = (
+                    f"📊 Monatsrückblick {summary['monat']}, {user['name']}!\n\n"
+                    f"📋 Wochenpläne: {summary['anzahl_plaene']}\n"
+                    f"⚡ Gesamt-TSS: {summary['total_tss']}\n"
+                    f"📈 Ø TSS/Woche: {summary['avg_tss']}\n"
+                    f"🔥 Streak: {streak} Wochen\n\n"
+                    "Weiter so! 💪"
+                )
+                await context.bot.send_message(chat_id=user["chat_id"], text=text)
+        except Exception as e:
+            logger.warning(f"Monatsrückblick für {user['chat_id']} fehlgeschlagen: {e}")
+
+
 def main():
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not token:
@@ -988,23 +1116,46 @@ def main():
     app.add_handler(CommandHandler("verletzung", verletzung_cmd))
     app.add_handler(CommandHandler("wettkampf", wettkampf_cmd))
     app.add_handler(CommandHandler("fortschritt", fortschritt_cmd))
+    app.add_handler(CommandHandler("partner", partner_cmd))
+    app.add_handler(CommandHandler("streak", streak_cmd))
+    app.add_handler(CommandHandler("monat", monatsrueckblick_cmd))
     app.add_handler(CommandHandler("help", help_cmd))
     app.add_handler(CallbackQueryHandler(button_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     logger.info("Community Coach Bot gestartet! 🚀")
 
-    # Wöchentlicher Reminder: Sonntag 18:00 Uhr
-    from datetime import time as dt_time, timezone as tz
+    # Wöchentlicher Reminder: Sonntag 18:00 Uhr deutsche Zeit
+    from datetime import time as dt_time
+    from zoneinfo import ZoneInfo
+    berlin = ZoneInfo("Europe/Berlin")
     job_queue = app.job_queue
     if job_queue:
         job_queue.run_daily(
             weekly_plan_reminder,
-            time=dt_time(hour=18, minute=0, tzinfo=tz.utc),
+            time=dt_time(hour=18, minute=0, tzinfo=berlin),
             days=(6,),  # 6 = Sonntag
             name="weekly_plan_reminder",
         )
-        logger.info("Wöchentlicher Plan-Reminder eingerichtet (So 18:00 UTC)")
+        logger.info("Wöchentlicher Plan-Reminder eingerichtet (So 18:00 Berlin)")
+
+        # Montag-Nachfass: 10:00 Uhr deutsche Zeit (nur wenn kein Plan seit Sonntag)
+        job_queue.run_daily(
+            monday_followup_reminder,
+            time=dt_time(hour=10, minute=0, tzinfo=berlin),
+            days=(0,),  # 0 = Montag
+            name="monday_followup",
+        )
+        logger.info("Montag-Nachfass eingerichtet (Mo 10:00 Berlin)")
+
+        # Monatlicher Rückblick: 1. des Monats um 10:00 Uhr deutsche Zeit
+        job_queue.run_monthly(
+            monthly_review_job,
+            when=dt_time(hour=10, minute=0, tzinfo=berlin),
+            day=1,
+            name="monthly_review",
+        )
+        logger.info("Monatlicher Rückblick eingerichtet (1. des Monats 10:00 UTC)")
 
     app.run_polling()
 

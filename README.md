@@ -26,7 +26,10 @@ Komplett kostenlos. Läuft auf Render, powered by Groq (Llama 3.3 70B).
 | 🤕 Verletzungen | Coach passt Plan an gemeldete Verletzungen an | Eingebaut | — |
 | 🏁 Wettkampf | Periodisierung auf Wettkampf-Ziel ausrichten | Eingebaut | — |
 | 📈 Fortschritt | TSS/CTL/ATL/TSB-Verlauf als Grafik | matplotlib | — |
-| 🔒 GDPR | Daten exportieren und löschen | Eingebaut | — |
+| � Partner | Trainingspartner in deiner Nähe finden | SQLite | — |
+| 🔥 Streak | Aufeinanderfolgende Wochen mit Plan | Eingebaut | — |
+| 📊 Monatsrückblick | Automatische Zusammenfassung am Monatsanfang | Eingebaut | — |
+| �🔒 GDPR | Daten exportieren und löschen | Eingebaut | — |
 
 ## Befehle im Telegram-Chat
 
@@ -43,6 +46,9 @@ Komplett kostenlos. Läuft auf Render, powered by Groq (Llama 3.3 70B).
 /verletzung  — Verletzung melden/entfernen
 /wettkampf   — Wettkampf-Ziel setzen
 /fortschritt — Trainingsfortschritt als Grafik
+/partner     — Trainingspartner in deiner Nähe
+/streak      — Dein Plan-Streak
+/monat       — Monatsrückblick
 /anleitung   — Kurzanleitung anzeigen
 /feedback    — Feedback geben
 /export      — Alle deine Daten exportieren (GDPR)

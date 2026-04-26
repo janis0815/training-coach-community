@@ -12,7 +12,7 @@
 
 ## Wer hat Zugriff?
 
-Nur der Bot-Betreiber. Deine Daten werden nicht an Dritte weitergegeben. Die KI (Groq) sieht deine Daten nur während der Planberechnung — nichts wird dort dauerhaft gespeichert.
+Nur der Bot-Betreiber. Deine Daten werden nicht an Dritte weitergegeben. Die KI (Groq) sieht deine Daten nur während der Planberechnung — nichts wird dort dauerhaft gespeichert. Bei /partner werden Name, PLZ und Sportarten anderen Usern in deiner Nähe angezeigt.
 
 ## Drittanbieter
 

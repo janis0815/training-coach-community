@@ -164,6 +164,26 @@ Zwischen den Wochenplänen schätzt der Bot aktuelle Werte:
 - Uhr-Auswahl: 6 Buttons statt Nummern
 - Datenquelle: Manuell/Automatisch als Buttons
 
+### 👥 Trainingspartner-Matching
+
+- **Befehl**: `/partner`
+- **Matching**: Gleiche PLZ-Region (erste 2 Ziffern) + gemeinsame Sportarten
+- **Datenschutz**: Zeigt nur Name, PLZ und gemeinsame Sportarten (keine Kontaktdaten)
+- **Voraussetzung**: PLZ gesetzt
+
+### 🔥 Streak-Counter
+
+- **Befehl**: `/streak`
+- **Berechnung**: Aufeinanderfolgende Wochen mit Trainingsplan (5-9 Tage Abstand)
+- **Automatisch**: Wird nach jedem neuen Plan angezeigt (ab 2 Wochen)
+- **Motivations-Stufen**: 1 Woche, 2-3, 4-7, 8+ mit steigenden Emojis
+
+### 📊 Monatsrückblick
+
+- **Befehl**: `/monat`
+- **Automatisch**: Am 1. jedes Monats um 10:00 UTC an alle aktiven User
+- **Inhalt**: Anzahl Pläne, Gesamt-TSS, Durchschnitt TSS/Woche, aktueller Streak
+
 ---
 
 ## Integrationen
