@@ -1,6 +1,10 @@
 # 🤖 Training Coach Community — Multi-User KI-Trainingsplaner
 
-Ein Telegram-Bot für mehrere User, der individuelle Wochenpläne erstellt. Mit Suunto- und Strava-Anbindung, Wetter, Rad-Events, Schwimmbädern und Community-Insights.
+Ein Telegram-Bot der als persönlicher Trainer fungiert. Du schickst ihm deine Leistungsdaten (TSS, CTL, HRV etc.) und er erstellt dir einen detaillierten Wochenplan mit konkreten Sessions, Aufwärmen, Übungen und Cooldown — individuell auf deine Sportarten, dein Fitnesslevel und das aktuelle Wetter abgestimmt.
+
+Der Bot verbindet sich mit Suunto, Strava, COROS und Sigma-Uhren, holt Workout-Daten automatisch, zeigt Rad-Events in deiner Nähe, schlägt Komoot-Routen vor und erinnert dich sonntags an deinen neuen Plan. Mehrere User können den Bot gleichzeitig nutzen — jeder bekommt sein eigenes Profil.
+
+Komplett kostenlos. Läuft auf Render, powered by Groq (Llama 3.3 70B).
 
 ## Was kann der Bot?
 

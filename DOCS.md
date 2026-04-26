@@ -1,6 +1,8 @@
 # 📚 Training Coach Community — Technische Dokumentation
 
-Ausführliche Dokumentation aller Features, Architektur, Sicherheitsmaßnahmen und Integrationen.
+Ein Telegram-Bot der als KI-gestützter Personal Trainer arbeitet. User schicken ihre Leistungsdaten und bekommen einen datenbasierten, periodisierten Wochenplan mit konkreten Sessions. Der Bot integriert Suunto/Strava-Workouts, Wetterdaten, Rad-Events, Schwimmbad-Öffnungszeiten und Komoot-Routenvorschläge automatisch in die Trainingsplanung.
+
+Diese Dokumentation beschreibt die technische Architektur, alle Features, Sicherheitsmaßnahmen und Integrationen im Detail.
 
 ---
 
