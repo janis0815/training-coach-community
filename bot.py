@@ -278,42 +278,10 @@ async def plan(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     else:
         data_request = build_data_request(user)
-        await update.message.reply_text(data_request, parse_mode="Markdown")
-
-    # Wetter anzeigen
-    try:
-        weather, city = _get_user_weather(user)
-        if weather:
-            await update.message.reply_text(format_weather_for_bot(weather, city), parse_mode="Markdown")
-    except Exception as e:
-        logger.warning(f"Wetter Fehler: {e}")
-
-    # Rad-Events anzeigen wenn User Radfahren macht und PLZ hat
-    if "radfahren" in user.get("sports", []) and user.get("plz"):
         try:
-            from datetime import datetime, timedelta
-            # Nächsten Montag als Wochenstart
-            today = datetime.now()
-            days_until_monday = (7 - today.weekday()) % 7
-            if days_until_monday == 0:
-                days_until_monday = 7
-            next_monday = today + timedelta(days=days_until_monday)
-            next_sunday = next_monday + timedelta(days=6)
-
-            await update.message.reply_text("🔍 Suche Rad-Events in deiner Nähe...")
-            events = scrape_events(
-                plz=user["plz"],
-                umkreis=user.get("umkreis", 20),
-                start_date=next_monday.strftime("%d.%m.%Y"),
-                end_date=next_sunday.strftime("%d.%m.%Y"),
-            )
-            if events:
-                week_events = get_events_for_week(events, next_monday)
-                if week_events:
-                    events_text = format_events_for_bot(week_events)
-                    await update.message.reply_text(events_text, parse_mode="Markdown")
-        except Exception as e:
-            logger.warning(f"Rad-Events Fehler: {e}")
+            await update.message.reply_text(data_request, parse_mode="Markdown")
+        except Exception:
+            await update.message.reply_text(data_request)
 
 
 async def strava_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -735,6 +703,45 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         reply = coach.chat(chat_id, enriched, system_prompt=full_prompt, use_full_model=True)
         save_training_log(chat_id, str(date.today()), text, reply)
+        await _send_reply(update, reply)
+
+        # Nach dem Plan: Wetter anzeigen
+        try:
+            weather, city = _get_user_weather(user)
+            if weather:
+                try:
+                    await update.message.reply_text(format_weather_for_bot(weather, city), parse_mode="Markdown")
+                except Exception:
+                    await update.message.reply_text(format_weather_for_bot(weather, city))
+        except Exception as e:
+            logger.warning(f"Wetter Fehler: {e}")
+
+        # Nach dem Plan: Rad-Events nur zeigen wenn welche gefunden werden (keine "Suche..."-Nachricht)
+        if "radfahren" in user.get("sports", []) and user.get("plz"):
+            try:
+                from datetime import datetime as dt_cls, timedelta as td_cls
+                today_dt = dt_cls.now()
+                days_to_mon = (7 - today_dt.weekday()) % 7
+                if days_to_mon == 0:
+                    days_to_mon = 7
+                mon = today_dt + td_cls(days=days_to_mon)
+                sun = mon + td_cls(days=6)
+                evts = scrape_events(
+                    plz=user["plz"],
+                    umkreis=user.get("umkreis", 20),
+                    start_date=mon.strftime("%d.%m.%Y"),
+                    end_date=sun.strftime("%d.%m.%Y"),
+                )
+                if evts:
+                    week_evts = get_events_for_week(evts, mon)
+                    if week_evts:
+                        try:
+                            await update.message.reply_text(format_events_for_bot(week_evts), parse_mode="Markdown")
+                        except Exception:
+                            await update.message.reply_text(format_events_for_bot(week_evts))
+            except Exception as e:
+                logger.warning(f"Rad-Events Fehler: {e}")
+
     else:
         chat_prompt = build_chat_prompt(user)
 
@@ -746,7 +753,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             reply = coach.chat(chat_id, text, system_prompt=chat_prompt, use_full_model=False)
 
-    await _send_reply(update, reply)
+        await _send_reply(update, reply)
 
 
 async def _send_reply(update: Update, reply: str):

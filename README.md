@@ -93,7 +93,18 @@ python bot.py             # Terminal 2
 
 Siehe `DEPLOY.md` für die Schritt-für-Schritt Anleitung.
 
-**Wichtig**: Render Free Tier schläft nach Inaktivität ein — die erste Antwort kann dann bis zu 50 Sekunden dauern. Danach geht's wieder flott.
+**Wichtig**: Render Free Tier schläft nach Inaktivität ein — die erste Antwort kann dann bis zu 50 Sekunden dauern. UptimeRobot pingt den Server alle 10 Minuten um das zu verhindern.
+
+## Wie funktioniert's?
+
+1. User schreibt `/start` → Datenschutz akzeptieren → Onboarding (Name, Uhr, Sportarten etc.)
+2. User schreibt `/plan` → Bot fragt Leistungsdaten ab (TSS, CTL, HRV etc.)
+3. User schickt die Daten → Bot erstellt detaillierten Wochenplan
+4. Nach dem Plan: Wetter-Vorhersage und Rad-Events (wenn vorhanden) werden angezeigt
+5. Zwischen den Plänen: Einfach Fragen stellen, Bot nutzt geschätzte Werte
+6. Sonntag 18:00: Automatische Erinnerung an den neuen Wochenplan
+
+Der Coach berücksichtigt automatisch das Wetter (kein Outdoor bei Regen) und schlägt Rad-Events als Trainingseinheit vor.
 
 ## Dateien
 
