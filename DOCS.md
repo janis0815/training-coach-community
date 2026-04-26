@@ -113,7 +113,7 @@ Zwischen den Wochenplänen schätzt der Bot aktuelle Werte:
 
 - **Daten**: 8 Hallenbäder + 6 Freibäder + 2 besondere Bäder in Hannover
 - **Öffnungszeiten**: Pro Wochentag, inkl. Sonderzeiten (Frauen, Kinder)
-- **Freibad-Saison**: 14.05. - 13.09.2026
+- **Freibad-Saison**: Dynamisch (14.05. - 13.09. jedes Jahr)
 - **Sanierungen**: Nord-Ost-Bad bis Frühjahr 2027 geschlossen
 
 ### 🗺️ Routenvorschläge (via Komoot)
@@ -269,7 +269,9 @@ Neue Spalten und Tabellen werden automatisch beim Start angelegt (ALTER TABLE mi
 - Feedback: max 500 Zeichen
 
 ### Token-Speicherung
-- OAuth-Tokens in SQLite (Klartext — Verschlüsselung geplant)
+- OAuth-Tokens werden mit Fernet (AES-128-CBC) verschlüsselt wenn `ENCRYPTION_KEY` gesetzt ist
+- Fallback auf Klartext wenn kein Key konfiguriert (Kompatibilität)
+- Automatische Migration: Bestehende Klartext-Tokens werden beim Lesen erkannt
 - `.env` in `.gitignore` (wird nicht gepusht)
 - Render Environment Variables (verschlüsselt)
 
@@ -423,7 +425,8 @@ training-coach-community/
 ├── rad_events.py          # rad-net.de Scraper (Playwright)
 ├── schwimmbaeder.py       # Schwimmbad-Öffnungszeiten
 ├── cache.py               # In-Memory Cache mit TTL
-├── requirements.txt       # Python-Dependencies
+├── crypto.py              # Token-Verschlüsselung (Fernet/AES)
+├── requirements.txt       # Python-Dependencies (gepinnt)
 ├── Dockerfile             # Docker-Container für Render
 ├── start_render.sh        # Start-Script für Render
 ├── render.yaml            # Render-Konfiguration
@@ -456,6 +459,7 @@ training-coach-community/
 | `OAUTH_HOST` | Nein | Server-Host (Default: localhost, Render: 0.0.0.0) |
 | `OAUTH_PORT` | Nein | Server-Port (Default: 5000) |
 | `REQUIRE_HTTPS` | Nein | HTTPS erzwingen (Default: false) |
+| `ENCRYPTION_KEY` | Nein | Schlüssel für Token-Verschlüsselung (beliebiger String) |
 
 ---
 
@@ -467,7 +471,7 @@ training-coach-community/
 - **COROS API**: Beantragt, noch nicht genehmigt
 - **Sigma**: Keine API, nur via Strava
 - **Rad-Events Scraping**: Abhängig von rad-net.de HTML-Struktur, kann brechen
-- **Tokens im Klartext**: OAuth-Tokens in SQLite nicht verschlüsselt
+- **Tokens im Klartext**: Verschlüsselung verfügbar wenn `ENCRYPTION_KEY` gesetzt (empfohlen)
 - **Render Spin-Down**: Free Tier schläft nach 15 Min Inaktivität ein (UptimeRobot als Workaround)
 
 ---

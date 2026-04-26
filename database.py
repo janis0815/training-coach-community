@@ -2,6 +2,7 @@ import sqlite3
 import json
 import logging
 from pathlib import Path
+from crypto import encrypt_token, decrypt_token
 
 logger = logging.getLogger(__name__)
 
@@ -186,7 +187,7 @@ def get_community_insights(limit: int = 20) -> list[dict]:
 
 
 def save_suunto_tokens(chat_id: int, token_data: dict):
-    """Speichert Suunto OAuth-Tokens (inkl. username) für einen Benutzer."""
+    """Speichert Suunto OAuth-Tokens (verschlüsselt) für einen Benutzer."""
     with _conn() as c:
         c.execute(
             """UPDATE users SET
@@ -196,8 +197,8 @@ def save_suunto_tokens(chat_id: int, token_data: dict):
                 suunto_username = ?
             WHERE chat_id = ?""",
             (
-                token_data.get("access_token", ""),
-                token_data.get("refresh_token", ""),
+                encrypt_token(token_data.get("access_token", "")),
+                encrypt_token(token_data.get("refresh_token", "")),
                 token_data.get("expires_at", 0),
                 token_data.get("username", ""),
                 chat_id,
@@ -218,6 +219,8 @@ def get_suunto_tokens(chat_id: int) -> dict | None:
         d = dict(row)
         if not d["suunto_access_token"]:
             return None
+        d["suunto_access_token"] = decrypt_token(d["suunto_access_token"])
+        d["suunto_refresh_token"] = decrypt_token(d["suunto_refresh_token"])
         return d
 
 

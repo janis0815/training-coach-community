@@ -1,7 +1,7 @@
 from datetime import date
 
-FREIBAD_SAISON_START = date(2026, 5, 14)
-FREIBAD_SAISON_ENDE = date(2026, 9, 13)
+FREIBAD_SAISON_START = date(date.today().year, 5, 14)
+FREIBAD_SAISON_ENDE = date(date.today().year, 9, 13)
 
 HALLENBAEDER = [
     {

@@ -139,5 +139,6 @@ Der Coach berücksichtigt automatisch das Wetter (kein Outdoor bei Regen), schl�
 - Webhooks: HMAC-SHA256 Signaturverifikation
 - SQL: Whitelist für Spaltennamen (kein SQL Injection)
 - HTTPS: Automatisch via Render, HTTP→HTTPS Redirect
+- Token-Verschlüsselung: Fernet (AES-128-CBC) wenn ENCRYPTION_KEY gesetzt
 - GDPR: Datenschutz-Zustimmung beim Start, /export und /delete
 - Input-Validierung: Längenlimits für alle Textfelder

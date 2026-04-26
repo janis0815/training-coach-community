@@ -32,6 +32,7 @@ Unter "Environment" alle Keys eintragen:
 | `OAUTH_HOST` | `0.0.0.0` | Immer so |
 | `OAUTH_PORT` | `5000` | Immer so |
 | `REQUIRE_HTTPS` | `true` | Immer so |
+| `ENCRYPTION_KEY` | Ein beliebiger langer String | Für Token-Verschlüsselung |
 
 ## Nach dem ersten Deploy
 

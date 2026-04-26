@@ -87,7 +87,7 @@ IMMER konkrete Übungen mit Sets x Reps und Intensität angeben.""")
     if "schwimmen" in user["sports"]:
         parts.append("""
 ## 🏊 SCHWIMMEN IN HANNOVER
-Freibad-Saison: 14.05.-13.09.2026. Bei Schwimmeinheiten Bäder + Zeiten vorschlagen.
+Freibad-Saison: 14.05.-13.09. Bei Schwimmeinheiten Bäder + Zeiten vorschlagen.
 /schwimmen zeigt aktuelle Öffnungszeiten.""")
 
     # Extra Notes
