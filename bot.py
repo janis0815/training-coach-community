@@ -998,7 +998,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data == "privacy_accept":
         update_user(chat_id, privacy_accepted=1, setup_step="name")
         await query.edit_message_text("✅ Datenschutz akzeptiert!")
-        await query.message.reply_text(get_setup_message("name", user))
+        # Kurz warten damit DB synct
+        import asyncio
+        await asyncio.sleep(0.5)
+        await query.message.reply_text(get_setup_message("name", get_user(chat_id) or user))
 
     # Uhr-Auswahl
     elif data.startswith("watch_"):
