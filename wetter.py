@@ -48,15 +48,22 @@ def geocode_plz(plz: str) -> tuple[float, float, str] | None:
     try:
         resp = httpx.get(
             "https://geocoding-api.open-meteo.com/v1/search",
-            params={"name": plz, "count": 1, "language": "de", "format": "json"},
+            params={"name": plz, "count": 10, "language": "de", "format": "json"},
             timeout=10,
         )
         if resp.status_code == 200:
             results = resp.json().get("results", [])
+            # Deutschland bevorzugen
+            for r in results:
+                if r.get("country_code", "").upper() == "DE":
+                    result = (r["latitude"], r["longitude"], r.get("name", plz))
+                    cache.set(cache_key, result, ttl_seconds=2592000)
+                    return result
+            # Fallback: erstes Ergebnis
             if results:
                 r = results[0]
                 result = (r["latitude"], r["longitude"], r.get("name", plz))
-                cache.set(cache_key, result, ttl_seconds=2592000)  # 30 Tage
+                cache.set(cache_key, result, ttl_seconds=2592000)
                 return result
     except Exception as e:
         logger.warning(f"Geocoding für PLZ {plz} fehlgeschlagen: {e}")

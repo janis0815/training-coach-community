@@ -817,6 +817,30 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton("📝 Keine Uhr", callback_data="watch_6")],
             ]
             await update.message.reply_text(reply, reply_markup=InlineKeyboardMarkup(keyboard))
+        elif next_user and next_user["setup_step"] == "data_source_suunto":
+            keyboard = [
+                [InlineKeyboardButton("🔗 Suunto API", callback_data="datasrc_suunto_1")],
+                [InlineKeyboardButton("🔗 Via Strava", callback_data="datasrc_suunto_2")],
+            ]
+            await update.message.reply_text(reply, reply_markup=InlineKeyboardMarkup(keyboard))
+        elif next_user and next_user["setup_step"] == "data_source_garmin":
+            keyboard = [
+                [InlineKeyboardButton("🔗 Garmin API", callback_data="datasrc_garmin_1")],
+                [InlineKeyboardButton("🔗 Via Strava", callback_data="datasrc_garmin_2")],
+            ]
+            await update.message.reply_text(reply, reply_markup=InlineKeyboardMarkup(keyboard))
+        elif next_user and next_user["setup_step"] == "data_source_apple":
+            keyboard = [
+                [InlineKeyboardButton("📝 Manuell", callback_data="datasrc_apple_1")],
+                [InlineKeyboardButton("🔗 Via Strava", callback_data="datasrc_apple_2")],
+            ]
+            await update.message.reply_text(reply, reply_markup=InlineKeyboardMarkup(keyboard))
+        elif next_user and next_user["setup_step"] == "data_mode":
+            keyboard = [
+                [InlineKeyboardButton("📝 Manuell", callback_data="datamode_1")],
+                [InlineKeyboardButton("🔗 Automatisch", callback_data="datamode_2")],
+            ]
+            await update.message.reply_text(reply, reply_markup=InlineKeyboardMarkup(keyboard))
         else:
             try:
                 await update.message.reply_text(reply, parse_mode="Markdown")
@@ -1001,11 +1025,43 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception:
                 await query.message.reply_text(reply)
 
-    # Datenquelle-Auswahl
+    # Datenquelle-Auswahl (Manuell/Automatisch)
     elif data.startswith("datamode_"):
         num = data.replace("datamode_", "")
         reply, done = process_setup_input(user, num)
         await query.edit_message_text("📊 Auswahl gespeichert!")
+        # Prüfe ob nächster Schritt Buttons braucht
+        next_user = get_user(chat_id)
+        if next_user and next_user["setup_step"] == "data_source_suunto":
+            keyboard = [
+                [InlineKeyboardButton("🔗 Suunto API", callback_data="datasrc_suunto_1")],
+                [InlineKeyboardButton("🔗 Via Strava", callback_data="datasrc_suunto_2")],
+            ]
+            await query.message.reply_text(reply, reply_markup=InlineKeyboardMarkup(keyboard))
+        elif next_user and next_user["setup_step"] == "data_source_garmin":
+            keyboard = [
+                [InlineKeyboardButton("🔗 Garmin API", callback_data="datasrc_garmin_1")],
+                [InlineKeyboardButton("🔗 Via Strava", callback_data="datasrc_garmin_2")],
+            ]
+            await query.message.reply_text(reply, reply_markup=InlineKeyboardMarkup(keyboard))
+        elif next_user and next_user["setup_step"] == "data_source_apple":
+            keyboard = [
+                [InlineKeyboardButton("📝 Manuell", callback_data="datasrc_apple_1")],
+                [InlineKeyboardButton("🔗 Via Strava", callback_data="datasrc_apple_2")],
+            ]
+            await query.message.reply_text(reply, reply_markup=InlineKeyboardMarkup(keyboard))
+        else:
+            try:
+                await query.message.reply_text(reply)
+            except Exception:
+                await query.message.reply_text(reply)
+
+    # Spezifische Datenquellen (Suunto API/Strava, Garmin API/Strava, Apple Manuell/Strava)
+    elif data.startswith("datasrc_"):
+        parts = data.replace("datasrc_", "").rsplit("_", 1)
+        num = parts[-1] if len(parts) > 1 else "1"
+        reply, done = process_setup_input(user, num)
+        await query.edit_message_text("🔗 Datenquelle gespeichert!")
         try:
             await query.message.reply_text(reply)
         except Exception:

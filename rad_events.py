@@ -1,31 +1,20 @@
 import re
 import logging
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
-from playwright.sync_api import sync_playwright
 from cache import cache
 
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://breitensport.rad-net.de/breitensportkalender/"
 
+_executor = ThreadPoolExecutor(max_workers=1)
 
-def scrape_events(plz: str = "30171", umkreis: int = 20, start_date: str = None, end_date: str = None) -> list[dict]:
-    """Scrapt Events vom BDR Breitensportkalender. Cached für 6 Stunden."""
-    if not start_date:
-        start_date = datetime.now().strftime("%d.%m.%Y")
-    if not end_date:
-        end_date = (datetime.now() + timedelta(days=270)).strftime("%d.%m.%Y")
 
-    cache_key = f"events_{plz}_{umkreis}_{start_date}_{end_date}"
-    cached = cache.get(cache_key)
-    if cached is not None:
-        return cached
-
-    url = (
-        f"{BASE_URL}?startdate={start_date}&enddate={end_date}"
-        f"&art=-1&titel=&lv=-1&umkreis={umkreis}&plz={plz}"
-        f"&tid=&formproof=&go=Termine+suchen"
-    )
+def _scrape_events_sync(url: str) -> list[dict]:
+    """Synchrones Scraping in separatem Thread (Playwright Sync API)."""
+    from playwright.sync_api import sync_playwright
 
     events = []
     try:
@@ -43,11 +32,9 @@ def scrape_events(plz: str = "30171", umkreis: int = 20, start_date: str = None,
                     if len(cells) < 5:
                         continue
 
-                    # Typ (RTF, CTF, Gravelride etc.)
                     tooltip = link.query_selector("div.tooltip")
                     event_type = tooltip.inner_text().strip() if tooltip else ""
 
-                    # Datum + Entfernung
                     date_cell = cells[1].inner_text().strip()
                     date_match = re.search(r"(\w+, \d{2}\.\d{2}\.\d{4})", date_cell)
                     dist_match = re.search(r"~(\d+)\s*km", date_cell)
@@ -55,16 +42,10 @@ def scrape_events(plz: str = "30171", umkreis: int = 20, start_date: str = None,
                     event_date = date_match.group(1) if date_match else date_cell
                     distance_from_plz = dist_match.group(1) + "km" if dist_match else ""
 
-                    # Name
                     name = cells[2].inner_text().strip()
-
-                    # Strecken
                     strecken = cells[3].inner_text().strip().replace("\n", "")
-
-                    # Verein/Ort
                     verein = cells[4].inner_text().strip() if len(cells) > 4 else ""
 
-                    # Link
                     href = link.get_attribute("href") or ""
                     if href and not href.startswith("http"):
                         href = f"https://breitensport.rad-net.de/{href.lstrip('/')}"
@@ -83,12 +64,43 @@ def scrape_events(plz: str = "30171", umkreis: int = 20, start_date: str = None,
                     continue
 
             browser.close()
-
     except Exception as e:
         logger.error(f"Scraping error: {e}")
 
+    return events
+
+
+def scrape_events(plz: str = "30171", umkreis: int = 20, start_date: str = None, end_date: str = None) -> list[dict]:
+    """Scrapt Events vom BDR Breitensportkalender. Cached für 6 Stunden. Thread-safe für asyncio."""
+    if not start_date:
+        start_date = datetime.now().strftime("%d.%m.%Y")
+    if not end_date:
+        end_date = (datetime.now() + timedelta(days=270)).strftime("%d.%m.%Y")
+
+    cache_key = f"events_{plz}_{umkreis}_{start_date}_{end_date}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    url = (
+        f"{BASE_URL}?startdate={start_date}&enddate={end_date}"
+        f"&art=-1&titel=&lv=-1&umkreis={umkreis}&plz={plz}"
+        f"&tid=&formproof=&go=Termine+suchen"
+    )
+
+    # In separatem Thread ausführen um asyncio-Konflikt zu vermeiden
+    try:
+        loop = asyncio.get_running_loop()
+        # Wir sind in einer asyncio-Loop → Thread nutzen
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            events = pool.submit(_scrape_events_sync, url).result(timeout=30)
+    except RuntimeError:
+        # Keine asyncio-Loop → direkt ausführen
+        events = _scrape_events_sync(url)
+
     if events:
-        cache.set(cache_key, events, ttl_seconds=21600)  # 6 Stunden
+        cache.set(cache_key, events, ttl_seconds=21600)
     return events
 
 
