@@ -43,11 +43,16 @@ def _conn():
 
 def _execute(conn, sql, params=()):
     """Führt SQL aus. SQLite-Syntax für beide (Turso ist SQLite-kompatibel)."""
-    # Turso versteht SQLite-Syntax direkt
     sql = sql.replace("BIGINT", "INTEGER")
     sql = sql.replace("SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
     sql = sql.replace("TIMESTAMP DEFAULT NOW()", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
     return conn.execute(sql, params)
+
+
+def _sync(conn):
+    """Synct Turso-Verbindung wenn nötig."""
+    if _USE_TURSO:
+        conn.sync()
 
 
 def _fetchone(conn, sql, params=()):
@@ -166,8 +171,7 @@ def init_db():
         )""")
 
         logger.info("Datenbank initialisiert.")
-        if _USE_TURSO:
-            conn.sync()
+        _sync(conn)
     finally:
         conn.close()
 
@@ -190,8 +194,7 @@ def create_user(chat_id: int):
     conn = _conn()
     try:
         _execute(conn, "INSERT OR IGNORE INTO users (chat_id) VALUES (?)", (chat_id,))
-        if _USE_TURSO:
-            conn.sync()
+        _sync(conn)
     finally:
         conn.close()
 
@@ -216,8 +219,7 @@ def update_user(chat_id: int, **kwargs):
             if key == "sports":
                 val = json.dumps(val)
             _execute(conn, f"UPDATE users SET {key} = ? WHERE chat_id = ?", (val, chat_id))
-        if _USE_TURSO:
-            conn.sync()
+        _sync(conn)
     finally:
         conn.close()
 
@@ -229,6 +231,7 @@ def save_training_log(chat_id: int, week_start: str, data: str, plan: str):
     try:
         _execute(conn, "INSERT INTO training_logs (chat_id, week_start, data_json, plan_json) VALUES (?, ?, ?, ?)",
                  (chat_id, week_start, data, plan))
+        _sync(conn)
     finally:
         conn.close()
 
