@@ -50,7 +50,7 @@ class CoachAI:
             response = self.client.chat.completions.create(
                 model=model,
                 messages=messages,
-                temperature=0.7,
+                temperature=0.5,
                 max_tokens=max_tokens,
             )
             reply = response.choices[0].message.content
