@@ -1,5 +1,5 @@
 """
-Datenbank-Modul: PostgreSQL (Supabase) wenn DATABASE_URL gesetzt, sonst SQLite (lokal).
+Datenbank-Modul: Turso (libsql) wenn TURSO_DATABASE_URL gesetzt, sonst SQLite (lokal).
 """
 import os
 import json
@@ -9,7 +9,8 @@ from crypto import encrypt_token, decrypt_token
 
 logger = logging.getLogger(__name__)
 
-DATABASE_URL = os.getenv("DATABASE_URL", "")
+TURSO_URL = os.getenv("TURSO_DATABASE_URL", "")
+TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN", "")
 DB_PATH = Path(__file__).parent / "data" / "users.db"
 
 AVAILABLE_SPORTS = [
@@ -19,21 +20,20 @@ AVAILABLE_SPORTS = [
 
 # ── Connection-Layer ───────────────────────────────────────────────────
 
-if DATABASE_URL:
-    import psycopg2
-    import psycopg2.extras
-    _USE_PG = True
-    logger.info("PostgreSQL-Modus (Supabase)")
+_USE_TURSO = bool(TURSO_URL and TURSO_TOKEN)
+
+if _USE_TURSO:
+    import libsql_experimental as libsql
+    logger.info("Turso-Modus (persistent)")
 else:
     import sqlite3
-    _USE_PG = False
     logger.info("SQLite-Modus (lokal)")
 
 
 def _conn():
-    if _USE_PG:
-        conn = psycopg2.connect(DATABASE_URL)
-        conn.autocommit = True
+    if _USE_TURSO:
+        conn = libsql.connect("training-coach.db", sync_url=TURSO_URL, auth_token=TURSO_TOKEN)
+        conn.sync()
         return conn
     else:
         conn = sqlite3.connect(DB_PATH)
@@ -42,41 +42,32 @@ def _conn():
 
 
 def _execute(conn, sql, params=()):
-    """Führt SQL aus — passt Syntax an (SQLite ↔ PostgreSQL)."""
-    if _USE_PG:
-        sql = sql.replace("?", "%s")
-        sql = sql.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
-        sql = sql.replace("TIMESTAMP DEFAULT CURRENT_TIMESTAMP", "TIMESTAMP DEFAULT NOW()")
-        sql = sql.replace("INSERT OR IGNORE", "INSERT")
-        sql = sql.replace("BIGINT PRIMARY KEY", "BIGINT PRIMARY KEY")  # bleibt gleich
-        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute(sql, params)
-        return cur
-    else:
-        # SQLite: BIGINT → INTEGER
-        sql = sql.replace("BIGINT", "INTEGER")
-        sql = sql.replace("SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
-        sql = sql.replace("TIMESTAMP DEFAULT NOW()", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
-        return conn.execute(sql, params)
+    """Führt SQL aus. SQLite-Syntax für beide (Turso ist SQLite-kompatibel)."""
+    # Turso versteht SQLite-Syntax direkt
+    sql = sql.replace("BIGINT", "INTEGER")
+    sql = sql.replace("SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
+    sql = sql.replace("TIMESTAMP DEFAULT NOW()", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+    return conn.execute(sql, params)
 
 
 def _fetchone(conn, sql, params=()):
     cur = _execute(conn, sql, params)
     row = cur.fetchone()
-    if row and _USE_PG:
-        return dict(row)
-    elif row and not _USE_PG:
-        return dict(row)
-    return None
+    if row is None:
+        return None
+    if _USE_TURSO:
+        cols = [desc[0] for desc in cur.description]
+        return dict(zip(cols, row))
+    return dict(row)
 
 
 def _fetchall(conn, sql, params=()):
     cur = _execute(conn, sql, params)
     rows = cur.fetchall()
-    if _USE_PG:
-        return [dict(r) for r in rows]
-    else:
-        return [dict(r) for r in rows]
+    if _USE_TURSO:
+        cols = [desc[0] for desc in cur.description]
+        return [dict(zip(cols, r)) for r in rows]
+    return [dict(r) for r in rows]
 
 
 # ── Schema-Initialisierung ─────────────────────────────────────────────
@@ -175,6 +166,8 @@ def init_db():
         )""")
 
         logger.info("Datenbank initialisiert.")
+        if _USE_TURSO:
+            conn.sync()
     finally:
         conn.close()
 
@@ -196,10 +189,9 @@ def get_user(chat_id: int) -> dict | None:
 def create_user(chat_id: int):
     conn = _conn()
     try:
-        if _USE_PG:
-            _execute(conn, "INSERT INTO users (chat_id) VALUES (%s) ON CONFLICT DO NOTHING", (chat_id,))
-        else:
-            _execute(conn, "INSERT OR IGNORE INTO users (chat_id) VALUES (?)", (chat_id,))
+        _execute(conn, "INSERT OR IGNORE INTO users (chat_id) VALUES (?)", (chat_id,))
+        if _USE_TURSO:
+            conn.sync()
     finally:
         conn.close()
 
@@ -223,10 +215,9 @@ def update_user(chat_id: int, **kwargs):
                 continue
             if key == "sports":
                 val = json.dumps(val)
-            if _USE_PG:
-                _execute(conn, f"UPDATE users SET {key} = %s WHERE chat_id = %s", (val, chat_id))
-            else:
-                _execute(conn, f"UPDATE users SET {key} = ? WHERE chat_id = ?", (val, chat_id))
+            _execute(conn, f"UPDATE users SET {key} = ? WHERE chat_id = ?", (val, chat_id))
+        if _USE_TURSO:
+            conn.sync()
     finally:
         conn.close()
 
