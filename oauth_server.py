@@ -275,7 +275,10 @@ class OAuthCallbackHandler(BaseHTTPRequestHandler):
 
 
 def main():
-    init_db()
+    try:
+        init_db()
+    except Exception as e:
+        logger.error(f"DB-Initialisierung fehlgeschlagen: {e} — OAuth-Server startet trotzdem")
 
     host = os.getenv("OAUTH_HOST", "localhost")
     port = int(os.getenv("OAUTH_PORT", "5000"))
