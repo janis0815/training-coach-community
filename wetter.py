@@ -39,32 +39,42 @@ WEATHER_CODES = {
 
 
 def geocode_plz(plz: str) -> tuple[float, float, str] | None:
-    """PLZ → (lat, lon, ortsname) via Open-Meteo Geocoding. Cached für 30 Tage."""
+    """PLZ → (lat, lon, ortsname) via Zippopotam.us (Deutschland). Cached für 30 Tage."""
     cache_key = f"geo_{plz}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
 
     try:
+        # Zippopotam.us: Kostenlos, kein API-Key, direkt PLZ + Land
         resp = httpx.get(
+            f"https://api.zippopotam.us/de/{plz}",
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            places = data.get("places", [])
+            if places:
+                place = places[0]
+                lat = float(place["latitude"])
+                lon = float(place["longitude"])
+                name = place.get("place name", plz)
+                result = (lat, lon, name)
+                cache.set(cache_key, result, ttl_seconds=2592000)  # 30 Tage
+                return result
+        # Fallback: Open-Meteo mit Deutschland-Filter
+        resp2 = httpx.get(
             "https://geocoding-api.open-meteo.com/v1/search",
             params={"name": plz, "count": 10, "language": "de", "format": "json"},
             timeout=10,
         )
-        if resp.status_code == 200:
-            results = resp.json().get("results", [])
-            # Deutschland bevorzugen
+        if resp2.status_code == 200:
+            results = resp2.json().get("results", [])
             for r in results:
                 if r.get("country_code", "").upper() == "DE":
                     result = (r["latitude"], r["longitude"], r.get("name", plz))
                     cache.set(cache_key, result, ttl_seconds=2592000)
                     return result
-            # Fallback: erstes Ergebnis
-            if results:
-                r = results[0]
-                result = (r["latitude"], r["longitude"], r.get("name", plz))
-                cache.set(cache_key, result, ttl_seconds=2592000)
-                return result
     except Exception as e:
         logger.warning(f"Geocoding für PLZ {plz} fehlgeschlagen: {e}")
     return None
