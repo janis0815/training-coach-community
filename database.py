@@ -42,16 +42,21 @@ def _conn():
 
 
 def _execute(conn, sql, params=()):
-    """Führt SQL aus — passt Platzhalter an (SQLite: ?, PostgreSQL: %s)."""
+    """Führt SQL aus — passt Syntax an (SQLite ↔ PostgreSQL)."""
     if _USE_PG:
         sql = sql.replace("?", "%s")
         sql = sql.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
         sql = sql.replace("TIMESTAMP DEFAULT CURRENT_TIMESTAMP", "TIMESTAMP DEFAULT NOW()")
         sql = sql.replace("INSERT OR IGNORE", "INSERT")
+        sql = sql.replace("BIGINT PRIMARY KEY", "BIGINT PRIMARY KEY")  # bleibt gleich
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(sql, params)
         return cur
     else:
+        # SQLite: BIGINT → INTEGER
+        sql = sql.replace("BIGINT", "INTEGER")
+        sql = sql.replace("SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
+        sql = sql.replace("TIMESTAMP DEFAULT NOW()", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
         return conn.execute(sql, params)
 
 
