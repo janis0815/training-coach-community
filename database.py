@@ -1,4 +1,7 @@
-import sqlite3
+"""
+Datenbank-Modul: PostgreSQL (Supabase) wenn DATABASE_URL gesetzt, sonst SQLite (lokal).
+"""
+import os
 import json
 import logging
 from pathlib import Path
@@ -6,6 +9,7 @@ from crypto import encrypt_token, decrypt_token
 
 logger = logging.getLogger(__name__)
 
+DATABASE_URL = os.getenv("DATABASE_URL", "")
 DB_PATH = Path(__file__).parent / "data" / "users.db"
 
 AVAILABLE_SPORTS = [
@@ -13,17 +17,70 @@ AVAILABLE_SPORTS = [
     "schwimmen", "krafttraining", "crossfit", "yoga", "meditation", "faszienrolle",
 ]
 
+# ── Connection-Layer ───────────────────────────────────────────────────
+
+if DATABASE_URL:
+    import psycopg2
+    import psycopg2.extras
+    _USE_PG = True
+    logger.info("PostgreSQL-Modus (Supabase)")
+else:
+    import sqlite3
+    _USE_PG = False
+    logger.info("SQLite-Modus (lokal)")
+
 
 def _conn():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    if _USE_PG:
+        conn = psycopg2.connect(DATABASE_URL)
+        conn.autocommit = True
+        return conn
+    else:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        return conn
 
+
+def _execute(conn, sql, params=()):
+    """Führt SQL aus — passt Platzhalter an (SQLite: ?, PostgreSQL: %s)."""
+    if _USE_PG:
+        sql = sql.replace("?", "%s")
+        sql = sql.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
+        sql = sql.replace("TIMESTAMP DEFAULT CURRENT_TIMESTAMP", "TIMESTAMP DEFAULT NOW()")
+        sql = sql.replace("INSERT OR IGNORE", "INSERT")
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(sql, params)
+        return cur
+    else:
+        return conn.execute(sql, params)
+
+
+def _fetchone(conn, sql, params=()):
+    cur = _execute(conn, sql, params)
+    row = cur.fetchone()
+    if row and _USE_PG:
+        return dict(row)
+    elif row and not _USE_PG:
+        return dict(row)
+    return None
+
+
+def _fetchall(conn, sql, params=()):
+    cur = _execute(conn, sql, params)
+    rows = cur.fetchall()
+    if _USE_PG:
+        return [dict(r) for r in rows]
+    else:
+        return [dict(r) for r in rows]
+
+
+# ── Schema-Initialisierung ─────────────────────────────────────────────
 
 def init_db():
-    with _conn() as c:
-        c.execute("""CREATE TABLE IF NOT EXISTS users (
-            chat_id INTEGER PRIMARY KEY,
+    conn = _conn()
+    try:
+        _execute(conn, """CREATE TABLE IF NOT EXISTS users (
+            chat_id BIGINT PRIMARY KEY,
             name TEXT,
             sports TEXT DEFAULT '[]',
             kraft_fokus TEXT DEFAULT '',
@@ -34,44 +91,35 @@ def init_db():
             data_source TEXT DEFAULT 'manuell',
             strava_access_token TEXT DEFAULT '',
             strava_refresh_token TEXT DEFAULT '',
-            strava_token_expires INTEGER DEFAULT 0,
+            strava_token_expires BIGINT DEFAULT 0,
             city TEXT DEFAULT 'Hannover',
             plz TEXT DEFAULT '',
             umkreis INTEGER DEFAULT 20,
             setup_complete INTEGER DEFAULT 0,
             setup_step TEXT DEFAULT 'privacy',
-            extra_notes TEXT DEFAULT ''
+            extra_notes TEXT DEFAULT '',
+            suunto_access_token TEXT DEFAULT '',
+            suunto_refresh_token TEXT DEFAULT '',
+            suunto_token_expires BIGINT DEFAULT 0,
+            suunto_username TEXT DEFAULT '',
+            privacy_accepted INTEGER DEFAULT 0,
+            injuries TEXT DEFAULT '',
+            competition_date TEXT DEFAULT '',
+            competition_name TEXT DEFAULT ''
         )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS training_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            chat_id INTEGER,
+
+        _execute(conn, """CREATE TABLE IF NOT EXISTS training_logs (
+            id SERIAL PRIMARY KEY,
+            chat_id BIGINT,
             week_start TEXT,
             data_json TEXT,
             plan_json TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (chat_id) REFERENCES users(chat_id)
+            created_at TIMESTAMP DEFAULT NOW()
         )""")
 
-        # --- Suunto: migrate users table (safe for existing DBs) ---
-        for col, typedef in [
-            ("suunto_access_token", "TEXT DEFAULT ''"),
-            ("suunto_refresh_token", "TEXT DEFAULT ''"),
-            ("suunto_token_expires", "INTEGER DEFAULT 0"),
-            ("suunto_username", "TEXT DEFAULT ''"),
-            ("privacy_accepted", "INTEGER DEFAULT 0"),
-            ("injuries", "TEXT DEFAULT ''"),
-            ("competition_date", "TEXT DEFAULT ''"),
-            ("competition_name", "TEXT DEFAULT ''"),
-        ]:
-            try:
-                c.execute(f"ALTER TABLE users ADD COLUMN {col} {typedef}")
-            except sqlite3.OperationalError:
-                pass  # column already exists
-
-        # --- Suunto: new tables ---
-        c.execute("""CREATE TABLE IF NOT EXISTS suunto_sleep_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            chat_id INTEGER,
+        _execute(conn, """CREATE TABLE IF NOT EXISTS suunto_sleep_logs (
+            id SERIAL PRIMARY KEY,
+            chat_id BIGINT,
             date TEXT,
             deep_sleep_min REAL,
             light_sleep_min REAL,
@@ -80,21 +128,21 @@ def init_db():
             hr_min INTEGER,
             sleep_quality_score INTEGER,
             avg_hrv REAL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (chat_id) REFERENCES users(chat_id)
+            created_at TIMESTAMP DEFAULT NOW()
         )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS suunto_recovery_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            chat_id INTEGER,
+
+        _execute(conn, """CREATE TABLE IF NOT EXISTS suunto_recovery_logs (
+            id SERIAL PRIMARY KEY,
+            chat_id BIGINT,
             date TEXT,
             balance REAL,
             stress_state INTEGER,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (chat_id) REFERENCES users(chat_id)
+            created_at TIMESTAMP DEFAULT NOW()
         )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS suunto_webhook_workouts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            chat_id INTEGER,
+
+        _execute(conn, """CREATE TABLE IF NOT EXISTS suunto_webhook_workouts (
+            id SERIAL PRIMARY KEY,
+            chat_id BIGINT,
             workout_key TEXT,
             sport TEXT,
             duration_sec INTEGER,
@@ -103,42 +151,54 @@ def init_db():
             hr_max INTEGER,
             ascent_m REAL,
             descent_m REAL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (chat_id) REFERENCES users(chat_id)
+            created_at TIMESTAMP DEFAULT NOW()
         )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS conversation_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            chat_id INTEGER,
+
+        _execute(conn, """CREATE TABLE IF NOT EXISTS conversation_history (
+            id SERIAL PRIMARY KEY,
+            chat_id BIGINT,
             role TEXT,
             content TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (chat_id) REFERENCES users(chat_id)
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS feedback (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            chat_id INTEGER,
-            text TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (chat_id) REFERENCES users(chat_id)
+            created_at TIMESTAMP DEFAULT NOW()
         )""")
 
+        _execute(conn, """CREATE TABLE IF NOT EXISTS feedback (
+            id SERIAL PRIMARY KEY,
+            chat_id BIGINT,
+            text TEXT,
+            created_at TIMESTAMP DEFAULT NOW()
+        )""")
+
+        logger.info("Datenbank initialisiert.")
+    finally:
+        conn.close()
+
+
+# ── User-Funktionen ───────────────────────────────────────────────────
 
 def get_user(chat_id: int) -> dict | None:
-    with _conn() as c:
-        row = c.execute("SELECT * FROM users WHERE chat_id = ?", (chat_id,)).fetchone()
+    conn = _conn()
+    try:
+        row = _fetchone(conn, "SELECT * FROM users WHERE chat_id = ?", (chat_id,))
         if row:
-            d = dict(row)
-            d["sports"] = json.loads(d["sports"])
-            return d
-    return None
+            row["sports"] = json.loads(row.get("sports", "[]"))
+            return row
+        return None
+    finally:
+        conn.close()
 
 
 def create_user(chat_id: int):
-    with _conn() as c:
-        c.execute("INSERT OR IGNORE INTO users (chat_id) VALUES (?)", (chat_id,))
+    conn = _conn()
+    try:
+        if _USE_PG:
+            _execute(conn, "INSERT INTO users (chat_id) VALUES (%s) ON CONFLICT DO NOTHING", (chat_id,))
+        else:
+            _execute(conn, "INSERT OR IGNORE INTO users (chat_id) VALUES (?)", (chat_id,))
+    finally:
+        conn.close()
 
 
-# Erlaubte Spalten für update_user (Whitelist gegen SQL Injection)
 _ALLOWED_USER_COLUMNS = {
     "name", "sports", "kraft_fokus", "has_dog", "dog_name", "has_hangboard",
     "watch", "data_source", "strava_access_token", "strava_refresh_token",
@@ -150,362 +210,293 @@ _ALLOWED_USER_COLUMNS = {
 
 
 def update_user(chat_id: int, **kwargs):
-    with _conn() as c:
+    conn = _conn()
+    try:
         for key, val in kwargs.items():
             if key not in _ALLOWED_USER_COLUMNS:
                 logger.warning(f"update_user: ungültiger Spaltenname '{key}' ignoriert")
                 continue
             if key == "sports":
                 val = json.dumps(val)
-            c.execute(f"UPDATE users SET {key} = ? WHERE chat_id = ?", (val, chat_id))
+            if _USE_PG:
+                _execute(conn, f"UPDATE users SET {key} = %s WHERE chat_id = %s", (val, chat_id))
+            else:
+                _execute(conn, f"UPDATE users SET {key} = ? WHERE chat_id = ?", (val, chat_id))
+    finally:
+        conn.close()
 
+
+# ── Training Logs ──────────────────────────────────────────────────────
 
 def save_training_log(chat_id: int, week_start: str, data: str, plan: str):
-    with _conn() as c:
-        c.execute(
-            "INSERT INTO training_logs (chat_id, week_start, data_json, plan_json) VALUES (?, ?, ?, ?)",
-            (chat_id, week_start, data, plan),
-        )
+    conn = _conn()
+    try:
+        _execute(conn, "INSERT INTO training_logs (chat_id, week_start, data_json, plan_json) VALUES (?, ?, ?, ?)",
+                 (chat_id, week_start, data, plan))
+    finally:
+        conn.close()
 
 
 def get_recent_logs(chat_id: int, limit: int = 4) -> list[dict]:
-    with _conn() as c:
-        rows = c.execute(
-            "SELECT * FROM training_logs WHERE chat_id = ? ORDER BY created_at DESC LIMIT ?",
-            (chat_id, limit),
-        ).fetchall()
-        return [dict(r) for r in rows]
+    conn = _conn()
+    try:
+        return _fetchall(conn, "SELECT * FROM training_logs WHERE chat_id = ? ORDER BY created_at DESC LIMIT ?",
+                         (chat_id, limit))
+    finally:
+        conn.close()
 
 
 def get_community_insights(limit: int = 20) -> list[dict]:
-    """Holt anonymisierte Trainings-Logs aller User für Cross-Learning."""
-    with _conn() as c:
-        rows = c.execute(
-            "SELECT data_json, plan_json FROM training_logs ORDER BY created_at DESC LIMIT ?",
-            (limit,),
-        ).fetchall()
-        return [dict(r) for r in rows]
+    conn = _conn()
+    try:
+        return _fetchall(conn, "SELECT data_json, plan_json FROM training_logs ORDER BY created_at DESC LIMIT ?",
+                         (limit,))
+    finally:
+        conn.close()
 
 
-# ── Suunto database functions ──────────────────────────────────────────
-
+# ── Suunto Tokens ──────────────────────────────────────────────────────
 
 def save_suunto_tokens(chat_id: int, token_data: dict):
-    """Speichert Suunto OAuth-Tokens (verschlüsselt) für einen Benutzer."""
-    with _conn() as c:
-        c.execute(
-            """UPDATE users SET
-                suunto_access_token = ?,
-                suunto_refresh_token = ?,
-                suunto_token_expires = ?,
-                suunto_username = ?
-            WHERE chat_id = ?""",
-            (
-                encrypt_token(token_data.get("access_token", "")),
-                encrypt_token(token_data.get("refresh_token", "")),
-                token_data.get("expires_at", 0),
-                token_data.get("username", ""),
-                chat_id,
-            ),
-        )
+    conn = _conn()
+    try:
+        if _USE_PG:
+            _execute(conn, """UPDATE users SET suunto_access_token = %s, suunto_refresh_token = %s,
+                suunto_token_expires = %s, suunto_username = %s WHERE chat_id = %s""",
+                     (encrypt_token(token_data.get("access_token", "")),
+                      encrypt_token(token_data.get("refresh_token", "")),
+                      token_data.get("expires_at", 0), token_data.get("username", ""), chat_id))
+        else:
+            _execute(conn, """UPDATE users SET suunto_access_token = ?, suunto_refresh_token = ?,
+                suunto_token_expires = ?, suunto_username = ? WHERE chat_id = ?""",
+                     (encrypt_token(token_data.get("access_token", "")),
+                      encrypt_token(token_data.get("refresh_token", "")),
+                      token_data.get("expires_at", 0), token_data.get("username", ""), chat_id))
+    finally:
+        conn.close()
 
 
 def get_suunto_tokens(chat_id: int) -> dict | None:
-    """Liest Suunto-Tokens für einen Benutzer. Gibt None zurück wenn nicht vorhanden."""
-    with _conn() as c:
-        row = c.execute(
-            "SELECT suunto_access_token, suunto_refresh_token, suunto_token_expires, suunto_username "
-            "FROM users WHERE chat_id = ?",
-            (chat_id,),
-        ).fetchone()
-        if row is None:
+    conn = _conn()
+    try:
+        row = _fetchone(conn, "SELECT suunto_access_token, suunto_refresh_token, suunto_token_expires, suunto_username FROM users WHERE chat_id = ?", (chat_id,))
+        if not row or not row.get("suunto_access_token"):
             return None
-        d = dict(row)
-        if not d["suunto_access_token"]:
-            return None
-        d["suunto_access_token"] = decrypt_token(d["suunto_access_token"])
-        d["suunto_refresh_token"] = decrypt_token(d["suunto_refresh_token"])
-        return d
+        row["suunto_access_token"] = decrypt_token(row["suunto_access_token"])
+        row["suunto_refresh_token"] = decrypt_token(row["suunto_refresh_token"])
+        return row
+    finally:
+        conn.close()
 
+
+# ── Suunto Sleep/Recovery/Workouts ─────────────────────────────────────
 
 def save_suunto_sleep(chat_id: int, sleep_data: dict):
-    """Speichert einen Suunto-Schlaf-Datensatz."""
-    with _conn() as c:
-        c.execute(
-            """INSERT INTO suunto_sleep_logs
-                (chat_id, date, deep_sleep_min, light_sleep_min, rem_sleep_min,
-                 hr_avg, hr_min, sleep_quality_score, avg_hrv)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                chat_id,
-                sleep_data.get("date", ""),
-                sleep_data.get("deep_sleep_min", 0),
-                sleep_data.get("light_sleep_min", 0),
-                sleep_data.get("rem_sleep_min", 0),
-                sleep_data.get("hr_avg", 0),
-                sleep_data.get("hr_min", 0),
-                sleep_data.get("sleep_quality_score", 0),
-                sleep_data.get("avg_hrv", 0),
-            ),
-        )
+    conn = _conn()
+    try:
+        _execute(conn, """INSERT INTO suunto_sleep_logs (chat_id, date, deep_sleep_min, light_sleep_min, rem_sleep_min, hr_avg, hr_min, sleep_quality_score, avg_hrv) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                 (chat_id, sleep_data.get("date", ""), sleep_data.get("deep_sleep_min", 0), sleep_data.get("light_sleep_min", 0), sleep_data.get("rem_sleep_min", 0), sleep_data.get("hr_avg", 0), sleep_data.get("hr_min", 0), sleep_data.get("sleep_quality_score", 0), sleep_data.get("avg_hrv", 0)))
+    finally:
+        conn.close()
 
 
 def save_suunto_recovery(chat_id: int, recovery_data: dict):
-    """Speichert einen Suunto-Recovery-Datensatz."""
-    with _conn() as c:
-        c.execute(
-            """INSERT INTO suunto_recovery_logs
-                (chat_id, date, balance, stress_state)
-            VALUES (?, ?, ?, ?)""",
-            (
-                chat_id,
-                recovery_data.get("date", ""),
-                recovery_data.get("balance", 0),
-                recovery_data.get("stress_state", 0),
-            ),
-        )
+    conn = _conn()
+    try:
+        _execute(conn, "INSERT INTO suunto_recovery_logs (chat_id, date, balance, stress_state) VALUES (?, ?, ?, ?)",
+                 (chat_id, recovery_data.get("date", ""), recovery_data.get("balance", 0), recovery_data.get("stress_state", 0)))
+    finally:
+        conn.close()
 
 
 def save_suunto_webhook_workout(chat_id: int, workout_data: dict):
-    """Speichert ein via Webhook empfangenes Suunto-Workout."""
-    with _conn() as c:
-        c.execute(
-            """INSERT INTO suunto_webhook_workouts
-                (chat_id, workout_key, sport, duration_sec, distance_m,
-                 hr_avg, hr_max, ascent_m, descent_m)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                chat_id,
-                workout_data.get("workout_key", ""),
-                workout_data.get("sport", ""),
-                workout_data.get("duration_sec", 0),
-                workout_data.get("distance_m", 0),
-                workout_data.get("hr_avg", 0),
-                workout_data.get("hr_max", 0),
-                workout_data.get("ascent_m", 0),
-                workout_data.get("descent_m", 0),
-            ),
-        )
+    conn = _conn()
+    try:
+        _execute(conn, """INSERT INTO suunto_webhook_workouts (chat_id, workout_key, sport, duration_sec, distance_m, hr_avg, hr_max, ascent_m, descent_m) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                 (chat_id, workout_data.get("workout_key", ""), workout_data.get("sport", ""), workout_data.get("duration_sec", 0), workout_data.get("distance_m", 0), workout_data.get("hr_avg", 0), workout_data.get("hr_max", 0), workout_data.get("ascent_m", 0), workout_data.get("descent_m", 0)))
+    finally:
+        conn.close()
 
 
 def get_recent_suunto_sleep(chat_id: int, days: int = 7) -> list[dict]:
-    """Liest die letzten N Tage Schlaf-Daten für einen Benutzer."""
-    with _conn() as c:
-        rows = c.execute(
-            "SELECT * FROM suunto_sleep_logs WHERE chat_id = ? "
-            "AND created_at >= datetime('now', ? || ' days') "
-            "ORDER BY date DESC",
-            (chat_id, -days),
-        ).fetchall()
-        return [dict(r) for r in rows]
+    conn = _conn()
+    try:
+        if _USE_PG:
+            return _fetchall(conn, "SELECT * FROM suunto_sleep_logs WHERE chat_id = %s AND created_at >= NOW() - INTERVAL '%s days' ORDER BY date DESC", (chat_id, days))
+        else:
+            return _fetchall(conn, "SELECT * FROM suunto_sleep_logs WHERE chat_id = ? AND created_at >= datetime('now', ? || ' days') ORDER BY date DESC", (chat_id, -days))
+    finally:
+        conn.close()
 
 
 def get_recent_suunto_recovery(chat_id: int, days: int = 7) -> list[dict]:
-    """Liest die letzten N Tage Recovery-Daten für einen Benutzer."""
-    with _conn() as c:
-        rows = c.execute(
-            "SELECT * FROM suunto_recovery_logs WHERE chat_id = ? "
-            "AND created_at >= datetime('now', ? || ' days') "
-            "ORDER BY date DESC",
-            (chat_id, -days),
-        ).fetchall()
-        return [dict(r) for r in rows]
+    conn = _conn()
+    try:
+        if _USE_PG:
+            return _fetchall(conn, "SELECT * FROM suunto_recovery_logs WHERE chat_id = %s AND created_at >= NOW() - INTERVAL '%s days' ORDER BY date DESC", (chat_id, days))
+        else:
+            return _fetchall(conn, "SELECT * FROM suunto_recovery_logs WHERE chat_id = ? AND created_at >= datetime('now', ? || ' days') ORDER BY date DESC", (chat_id, -days))
+    finally:
+        conn.close()
 
 
 def get_chat_id_by_suunto_username(username: str) -> int | None:
-    """Löst einen Suunto-Username zu einer chat_id auf."""
-    with _conn() as c:
-        row = c.execute(
-            "SELECT chat_id FROM users WHERE suunto_username = ?",
-            (username,),
-        ).fetchone()
+    conn = _conn()
+    try:
+        row = _fetchone(conn, "SELECT chat_id FROM users WHERE suunto_username = ?", (username,))
         return row["chat_id"] if row else None
+    finally:
+        conn.close()
 
 
-# ── GDPR: Datenlöschung und -export ────────────────────────────────────
-
+# ── GDPR ───────────────────────────────────────────────────────────────
 
 def delete_user_data(chat_id: int):
-    """Löscht alle Daten eines Users (GDPR: Recht auf Vergessenwerden)."""
-    with _conn() as c:
-        c.execute("DELETE FROM suunto_webhook_workouts WHERE chat_id = ?", (chat_id,))
-        c.execute("DELETE FROM suunto_sleep_logs WHERE chat_id = ?", (chat_id,))
-        c.execute("DELETE FROM suunto_recovery_logs WHERE chat_id = ?", (chat_id,))
-        c.execute("DELETE FROM training_logs WHERE chat_id = ?", (chat_id,))
-        c.execute("DELETE FROM users WHERE chat_id = ?", (chat_id,))
-    logger.info(f"Alle Daten für chat_id {chat_id} gelöscht (GDPR)")
+    conn = _conn()
+    try:
+        for table in ["suunto_webhook_workouts", "suunto_sleep_logs", "suunto_recovery_logs", "training_logs", "conversation_history", "feedback", "users"]:
+            _execute(conn, f"DELETE FROM {table} WHERE chat_id = ?", (chat_id,))
+        logger.info(f"Alle Daten für chat_id {chat_id} gelöscht (GDPR)")
+    finally:
+        conn.close()
 
 
 def export_user_data(chat_id: int) -> dict:
-    """Exportiert alle Daten eines Users als Dict (GDPR: Recht auf Datenportabilität)."""
-    with _conn() as c:
-        user_row = c.execute("SELECT * FROM users WHERE chat_id = ?", (chat_id,)).fetchone()
-        if not user_row:
+    conn = _conn()
+    try:
+        user = _fetchone(conn, "SELECT * FROM users WHERE chat_id = ?", (chat_id,))
+        if not user:
             return {}
-
-        user = dict(user_row)
         user["sports"] = json.loads(user.get("sports", "[]"))
-        # Tokens nicht exportieren
         for key in ["strava_access_token", "strava_refresh_token", "suunto_access_token", "suunto_refresh_token"]:
             user.pop(key, None)
-
-        logs = c.execute(
-            "SELECT week_start, data_json, plan_json, created_at FROM training_logs WHERE chat_id = ? ORDER BY created_at DESC",
-            (chat_id,),
-        ).fetchall()
-
-        sleep = c.execute(
-            "SELECT date, deep_sleep_min, light_sleep_min, rem_sleep_min, hr_avg, hr_min, sleep_quality_score, avg_hrv, created_at FROM suunto_sleep_logs WHERE chat_id = ? ORDER BY date DESC",
-            (chat_id,),
-        ).fetchall()
-
-        recovery = c.execute(
-            "SELECT date, balance, stress_state, created_at FROM suunto_recovery_logs WHERE chat_id = ? ORDER BY date DESC",
-            (chat_id,),
-        ).fetchall()
-
-        return {
-            "profil": user,
-            "training_logs": [dict(r) for r in logs],
-            "schlaf_daten": [dict(r) for r in sleep],
-            "recovery_daten": [dict(r) for r in recovery],
-        }
+        logs = _fetchall(conn, "SELECT week_start, data_json, plan_json, created_at FROM training_logs WHERE chat_id = ? ORDER BY created_at DESC", (chat_id,))
+        sleep = _fetchall(conn, "SELECT date, deep_sleep_min, light_sleep_min, rem_sleep_min, hr_avg, hr_min, sleep_quality_score, avg_hrv, created_at FROM suunto_sleep_logs WHERE chat_id = ? ORDER BY date DESC", (chat_id,))
+        recovery = _fetchall(conn, "SELECT date, balance, stress_state, created_at FROM suunto_recovery_logs WHERE chat_id = ? ORDER BY date DESC", (chat_id,))
+        return {"profil": user, "training_logs": logs, "schlaf_daten": sleep, "recovery_daten": recovery}
+    finally:
+        conn.close()
 
 
-# ── Conversation History (persistent) ─────────────────────────────────
-
+# ── Conversation History ───────────────────────────────────────────────
 
 def save_conversation_messages(chat_id: int, messages: list[dict]):
-    """Speichert Conversation-History für einen User (überschreibt bestehende)."""
-    with _conn() as c:
-        c.execute("DELETE FROM conversation_history WHERE chat_id = ?", (chat_id,))
+    conn = _conn()
+    try:
+        _execute(conn, "DELETE FROM conversation_history WHERE chat_id = ?", (chat_id,))
         for msg in messages:
-            c.execute(
-                "INSERT INTO conversation_history (chat_id, role, content) VALUES (?, ?, ?)",
-                (chat_id, msg["role"], msg["content"]),
-            )
+            _execute(conn, "INSERT INTO conversation_history (chat_id, role, content) VALUES (?, ?, ?)",
+                     (chat_id, msg["role"], msg["content"]))
+    finally:
+        conn.close()
 
 
 def load_conversation_history(chat_id: int, limit: int = 20) -> list[dict]:
-    """Lädt die letzten N Conversation-Messages für einen User."""
-    with _conn() as c:
-        rows = c.execute(
-            "SELECT role, content FROM conversation_history WHERE chat_id = ? "
-            "ORDER BY id DESC LIMIT ?",
-            (chat_id, limit),
-        ).fetchall()
-        # Umkehren weil DESC sortiert
+    conn = _conn()
+    try:
+        rows = _fetchall(conn, "SELECT role, content FROM conversation_history WHERE chat_id = ? ORDER BY id DESC LIMIT ?", (chat_id, limit))
         return [{"role": r["role"], "content": r["content"]} for r in reversed(rows)]
+    finally:
+        conn.close()
 
 
 def clear_conversation_history(chat_id: int):
-    """Löscht die Conversation-History für einen User."""
-    with _conn() as c:
-        c.execute("DELETE FROM conversation_history WHERE chat_id = ?", (chat_id,))
+    conn = _conn()
+    try:
+        _execute(conn, "DELETE FROM conversation_history WHERE chat_id = ?", (chat_id,))
+    finally:
+        conn.close()
 
+
+# ── Sonstige ───────────────────────────────────────────────────────────
 
 def get_all_active_users() -> list[dict]:
-    """Holt alle User mit abgeschlossenem Setup für Scheduled Reminders."""
-    with _conn() as c:
-        rows = c.execute(
-            "SELECT chat_id, name FROM users WHERE setup_complete = 1"
-        ).fetchall()
-        return [dict(r) for r in rows]
+    conn = _conn()
+    try:
+        return _fetchall(conn, "SELECT chat_id, name FROM users WHERE setup_complete = 1")
+    finally:
+        conn.close()
 
 
 def save_feedback(chat_id: int, feedback: str):
-    """Speichert User-Feedback."""
-    with _conn() as c:
-        c.execute(
-            "INSERT INTO feedback (chat_id, text) VALUES (?, ?)",
-            (chat_id, feedback),
-        )
+    conn = _conn()
+    try:
+        _execute(conn, "INSERT INTO feedback (chat_id, text) VALUES (?, ?)", (chat_id, feedback))
+    finally:
+        conn.close()
 
 
 def find_training_partners(chat_id: int, plz: str, sports: list[str], limit: int = 5) -> list[dict]:
-    """Findet User mit ähnlichen Sportarten in der gleichen PLZ-Region."""
-    with _conn() as c:
-        rows = c.execute(
-            "SELECT chat_id, name, sports, plz FROM users "
-            "WHERE setup_complete = 1 AND chat_id != ? AND plz != '' "
-            "ORDER BY created_at DESC",
-            (chat_id,),
-        ).fetchall()
-
+    conn = _conn()
+    try:
+        rows = _fetchall(conn, "SELECT chat_id, name, sports, plz FROM users WHERE setup_complete = 1 AND chat_id != ? AND plz != ''", (chat_id,))
         matches = []
         for row in rows:
-            d = dict(row)
-            d["sports"] = json.loads(d.get("sports", "[]"))
-            # PLZ-Nähe: Gleiche ersten 2 Ziffern = gleiche Region
-            if plz and d.get("plz", "")[:2] == plz[:2]:
-                common = set(sports) & set(d["sports"])
+            row["sports"] = json.loads(row.get("sports", "[]"))
+            if plz and row.get("plz", "")[:2] == plz[:2]:
+                common = set(sports) & set(row["sports"])
                 if common:
-                    d["common_sports"] = list(common)
-                    matches.append(d)
+                    row["common_sports"] = list(common)
+                    matches.append(row)
                     if len(matches) >= limit:
                         break
         return matches
+    finally:
+        conn.close()
 
 
 def get_plan_streak(chat_id: int) -> int:
-    """Zählt aufeinanderfolgende Wochen mit Trainingsplan."""
-    with _conn() as c:
-        rows = c.execute(
-            "SELECT week_start FROM training_logs WHERE chat_id = ? ORDER BY created_at DESC",
-            (chat_id,),
-        ).fetchall()
-
-    if not rows:
-        return 0
-
-    from datetime import datetime, timedelta
-    streak = 1
-    prev = None
-    for row in rows:
-        try:
-            dt = datetime.fromisoformat(row["week_start"].replace("Z", "+00:00")).replace(tzinfo=None) if "T" in row["week_start"] else datetime.strptime(row["week_start"], "%Y-%m-%d")
-        except (ValueError, TypeError):
-            continue
-        if prev is None:
-            prev = dt
-            continue
-        diff = (prev - dt).days
-        if 5 <= diff <= 9:  # Ungefähr eine Woche
-            streak += 1
-            prev = dt
-        else:
-            break
-    return streak
+    conn = _conn()
+    try:
+        rows = _fetchall(conn, "SELECT week_start FROM training_logs WHERE chat_id = ? ORDER BY created_at DESC", (chat_id,))
+        if not rows:
+            return 0
+        from datetime import datetime
+        streak = 1
+        prev = None
+        for row in rows:
+            try:
+                ws = row["week_start"]
+                dt = datetime.fromisoformat(ws.replace("Z", "+00:00")).replace(tzinfo=None) if "T" in ws else datetime.strptime(ws, "%Y-%m-%d")
+            except (ValueError, TypeError):
+                continue
+            if prev is None:
+                prev = dt
+                continue
+            diff = (prev - dt).days
+            if 5 <= diff <= 9:
+                streak += 1
+                prev = dt
+            else:
+                break
+        return streak
+    finally:
+        conn.close()
 
 
 def get_monthly_summary(chat_id: int) -> dict | None:
-    """Erstellt eine Monatszusammenfassung aus den Training-Logs."""
-    from datetime import datetime, timedelta
-    now = datetime.now()
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-
-    with _conn() as c:
-        rows = c.execute(
-            "SELECT data_json, plan_json, created_at FROM training_logs "
-            "WHERE chat_id = ? AND created_at >= ? ORDER BY created_at",
-            (chat_id, month_start.isoformat()),
-        ).fetchall()
-
-    if not rows:
-        return None
-
-    from estimator import parse_metrics_from_text
-    total_plans = len(rows)
-    all_tss = []
-
-    for row in rows:
-        metrics = parse_metrics_from_text(row.get("data_json", ""))
-        if metrics.get("tss"):
-            all_tss.append(metrics["tss"])
-
-    return {
-        "monat": now.strftime("%B %Y"),
-        "anzahl_plaene": total_plans,
-        "total_tss": round(sum(all_tss), 1) if all_tss else 0,
-        "avg_tss": round(sum(all_tss) / len(all_tss), 1) if all_tss else 0,
-    }
+    from datetime import datetime
+    conn = _conn()
+    try:
+        now = datetime.now()
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        if _USE_PG:
+            rows = _fetchall(conn, "SELECT data_json, plan_json, created_at FROM training_logs WHERE chat_id = %s AND created_at >= %s ORDER BY created_at", (chat_id, month_start))
+        else:
+            rows = _fetchall(conn, "SELECT data_json, plan_json, created_at FROM training_logs WHERE chat_id = ? AND created_at >= ? ORDER BY created_at", (chat_id, month_start.isoformat()))
+        if not rows:
+            return None
+        from estimator import parse_metrics_from_text
+        all_tss = []
+        for row in rows:
+            metrics = parse_metrics_from_text(row.get("data_json", ""))
+            if metrics.get("tss"):
+                all_tss.append(metrics["tss"])
+        return {
+            "monat": now.strftime("%B %Y"),
+            "anzahl_plaene": len(rows),
+            "total_tss": round(sum(all_tss), 1) if all_tss else 0,
+            "avg_tss": round(sum(all_tss) / len(all_tss), 1) if all_tss else 0,
+        }
+    finally:
+        conn.close()
