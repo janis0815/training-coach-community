@@ -23,11 +23,20 @@ HRV sinkt → Rest = Recovery | Nase zu → kein Run + keine Intensität | Ungep
 ## MUSKELGRUPPEN-MANAGEMENT
 - Schwimmen: Lat, Schultern, Trizeps, Core
 - Bouldern/Klettern: Unterarme, Bizeps, Lat, Schultern, Core, Finger
-- Radfahren: Quadrizeps, Hamstrings, Gluteus, Waden
+- Radfahren (Rennrad/Gravel): Quadrizeps, Hamstrings, Gluteus, Waden
+- Radfahren (MTB/Enduro): Quadrizeps, Hamstrings, Gluteus, Waden + Unterarme, Schultern, Core (Downhill-Kontrolle)
 - Laufen: Waden, Quadrizeps, Hamstrings, Gluteus
 - Krafttraining: Je nach Fokus
+- CrossFit: GANZKÖRPER (Olympic Lifts, Gymnastics, Cardio) — wie Krafttraining + Cardio kombiniert
+
+ENDURO MTB REGELN:
+- Enduro = Uphill (GA1-GA2 Ausdauer) + Downhill (Technik, Ganzkörper-Belastung)
+- Nach langen Enduro-Sessions (>3h): Nächster Tag Recovery (Arme + Beine beansprucht)
+- Enduro + Bouldern/Klettern nicht direkt hintereinander (Unterarme/Grip)
+- Krafttraining für Enduro: Core-Stabilität, Armpump-Prävention (Unterarm-Ausdauer), Beine
 
 KONFLIKTE VERMEIDEN: Gleiche Muskelgruppen nie direkt hintereinander belasten.
+CrossFit + Krafttraining NIE am gleichen Tag. CrossFit + Bouldern NIE direkt hintereinander.
 Schwimmen+Klettern NIE direkt hintereinander. Kraft(Beine)+Laufen/Rad GA2 NIE direkt hintereinander.
 
 ## SESSION-STRUKTUREN
@@ -82,6 +91,19 @@ Der Athlet will den Schwerpunkt auf {fokus} legen.
 70% der Kraft-Übungen auf {fokus}, 30% Ganzkörper/Core.
 Periodisierung: BASE=moderat 3x10-12, BUILD=progressiv 4x5-8+Plyometrics, DELOAD=leicht 2x12-15.
 IMMER konkrete Übungen mit Sets x Reps und Intensität angeben.""")
+
+    # CrossFit
+    if "crossfit" in user["sports"]:
+        parts.append("""
+## 🏋️ CROSSFIT (Kurs-Sportart)
+Der Athlet besucht CrossFit-Kurse in einer Box. KEINE eigenen WODs planen!
+- CrossFit als festen Block einplanen (60min Kurs)
+- Muskelgruppen: GANZKÖRPER (Olympic Lifts, Gymnastics, Cardio)
+- KONFLIKTE: CrossFit + Krafttraining NIE am gleichen Tag
+- CrossFit + Bouldern/Klettern NIE direkt hintereinander (Oberkörper-Überlastung)
+- Tag nach CrossFit: Nur GA1 Cardio oder Recovery
+- TSS-Schätzung: ~80-120 pro Kurs (je nach Intensität)
+- Im Plan nur Slot + Recovery drumherum planen, keine Übungsdetails""")
 
     # Schwimmen in Hannover
     if "schwimmen" in user["sports"]:
@@ -140,7 +162,8 @@ Standort: {city} ({lat}, {lon})
 Nutze diese Link-Formate:
 - Rennrad: https://www.komoot.com/discover/{city}/@{lat},{lon}/tours?sport=racebike
 - Gravel: https://www.komoot.com/discover/{city}/@{lat},{lon}/tours?sport=touringbicycle
-- MTB: https://www.komoot.com/discover/{city}/@{lat},{lon}/tours?sport=mtb
+- MTB/Enduro: https://www.komoot.com/discover/{city}/@{lat},{lon}/tours?sport=mtb_easy
+- MTB Downhill: https://www.komoot.com/discover/{city}/@{lat},{lon}/tours?sport=mtb
 - Laufen: https://www.komoot.com/discover/{city}/@{lat},{lon}/tours?sport=jogging
 - Trail Running: https://www.komoot.com/discover/{city}/@{lat},{lon}/tours?sport=jogging
 

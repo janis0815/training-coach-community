@@ -9,17 +9,18 @@ MAX_EXTRA_NOTES_LENGTH = 500
 
 SPORT_EMOJIS = {
     "laufen": "🏃", "radfahren": "🚴", "bouldern": "🧗", "seilklettern": "🧗",
-    "schwimmen": "🏊", "krafttraining": "💪", "yoga": "🧘", "meditation": "🧠",
-    "faszienrolle": "🔵",
+    "schwimmen": "🏊", "krafttraining": "💪", "crossfit": "🏋️", "yoga": "🧘",
+    "meditation": "🧠", "faszienrolle": "🔵",
 }
 
 SPORT_LABELS = {
     "laufen": "Laufen (Trail & Straße)",
-    "radfahren": "Radfahren (Gravel, Rennrad, MTB)",
+    "radfahren": "Radfahren (Gravel, Rennrad, MTB, Enduro)",
     "bouldern": "Bouldern",
     "seilklettern": "Seilklettern",
     "schwimmen": "Schwimmen",
     "krafttraining": "Krafttraining",
+    "crossfit": "CrossFit (Kurse)",
     "yoga": "Yoga",
     "meditation": "Meditation",
     "faszienrolle": "Faszienrolle",

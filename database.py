@@ -10,7 +10,7 @@ DB_PATH = Path(__file__).parent / "data" / "users.db"
 
 AVAILABLE_SPORTS = [
     "laufen", "radfahren", "bouldern", "seilklettern",
-    "schwimmen", "krafttraining", "yoga", "meditation", "faszienrolle",
+    "schwimmen", "krafttraining", "crossfit", "yoga", "meditation", "faszienrolle",
 ]
 
 
