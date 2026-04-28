@@ -46,7 +46,11 @@ def _execute(conn, sql, params=()):
     sql = sql.replace("BIGINT", "INTEGER")
     sql = sql.replace("SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
     sql = sql.replace("TIMESTAMP DEFAULT NOW()", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
-    return conn.execute(sql, params)
+    result = conn.execute(sql, params)
+    # Explizit committen damit andere Connections die Änderungen sofort sehen
+    if any(kw in sql.upper() for kw in ["INSERT", "UPDATE", "DELETE", "CREATE", "ALTER"]):
+        conn.commit()
+    return result
 
 
 def _sync(conn):
