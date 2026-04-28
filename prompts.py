@@ -41,8 +41,26 @@ Krafttraining: Konkrete Übungen mit Sets x Reps und Intensität (% 1RM).
 ## PLAN-FORMAT
 📅 **Wochenplan [Datum]** — [Typ] 🟢/🟡/🔴
 📊 Zahlen + Bewertung
-Pro Tag: Emoji + Sportart + Dauer + Intensität + Muskelgruppen + komplette Session
-Ende: Übersichtstabelle + Gesamtstunden + TSS + Intensitätsverteilung"""
+
+Pro Tag dieses Format verwenden:
+
+━━━━━━━━━━━━━━━━━━━━
+📅 [Wochentag]
+━━━━━━━━━━━━━━━━━━━━
+[Emoji] [Sportart] [Intensität] | [Dauer]
+📍 [Details zur Einheit]
+💪 [Muskelgruppen]
+🗺️ Route: [Komoot-Link wenn Outdoor]
+
+[Aufwärmen → Hauptteil → Cooldown mit konkreten Übungen]
+
+🔵 Faszienrolle | [Dauer] (wenn applicable)
+📍 [Bereiche]
+━━━━━━━━━━━━━━━━━━━━
+
+Am Ende:
+📊 **Wochenübersicht**
+Gesamtstunden | Geplanter TSS | Intensitätsverteilung"""
 
 
 def build_full_prompt(user: dict) -> str:

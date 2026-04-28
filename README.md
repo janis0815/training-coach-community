@@ -123,6 +123,14 @@ Siehe `DEPLOY.md` für die Schritt-für-Schritt Anleitung.
 
 Der Coach berücksichtigt automatisch das Wetter (kein Outdoor bei Regen), schlägt Rad-Events als Trainingseinheit vor und fügt bei Outdoor-Einheiten passende Komoot-Routenvorschläge ein.
 
+## UI-Features
+
+- Inline-Buttons für Datenschutz-Zustimmung, Uhr-Auswahl und Datenquellen
+- Multi-Select Toggle-Buttons für Sportarten (✅/⬜ statt Nummern)
+- Formatierte Wochenpläne mit Trennlinien, Emojis und klarer Tagesstruktur
+- Fortschritts-Grafiken als Inline-Bilder (TSS/CTL/ATL/TSB-Verlauf)
+- Befehle-Menü in Telegram (/-Dropdown)
+
 ## Dateien
 
 | Datei | Was macht sie? |

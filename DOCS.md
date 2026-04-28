@@ -126,9 +126,10 @@ Zwischen den Wochenplänen schätzt der Bot aktuelle Werte:
 
 ### ⏰ Scheduled Reminders
 
-- **Zeitpunkt**: Sonntag 18:00 UTC
+- **Sonntag 18:00** (deutsche Zeit): Wochenplan-Erinnerung
+- **Montag 10:00** (deutsche Zeit): Nachfass wenn seit Sonntag kein Plan erstellt
+- **1. des Monats 10:00**: Automatischer Monatsrückblick
 - **Empfänger**: Alle User mit abgeschlossenem Setup
-- **Inhalt**: Erinnerung an /plan für den neuen Wochenplan
 
 ### 💬 Feedback-System
 
@@ -160,9 +161,11 @@ Zwischen den Wochenplänen schätzt der Bot aktuelle Werte:
 
 ### 🖱️ Inline-Keyboards
 
-- Datenschutz-Zustimmung: Button statt Texteingabe
-- Uhr-Auswahl: 6 Buttons statt Nummern
-- Datenquelle: Manuell/Automatisch als Buttons
+- Datenschutz-Zustimmung: ✅-Button statt Texteingabe
+- Uhr-Auswahl: 6 Buttons (Suunto, Garmin, COROS, Apple Watch, Sigma, Keine)
+- Datenquelle: Manuell/Automatisch, Suunto API/Strava als Buttons
+- Sportarten: Multi-Select Toggle-Buttons (✅/⬜) mit "Fertig"-Button
+- Formatierte Wochenpläne: Trennlinien (━━━), Emojis, klare Tagesstruktur
 
 ### 👥 Trainingspartner-Matching
 
