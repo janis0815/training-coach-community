@@ -183,7 +183,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user and user["setup_complete"]:
         await update.message.reply_text(
             f"Hey {user['name']}! 👋 Schön dich wiederzusehen!\n\n"
-            "**Befehle:**\n"
+            "Befehle:\n"
             "/plan — Neuen Wochenplan\n"
             "/checkin — Midweek Check-in\n"
             "/profil — Dein Profil\n"
@@ -194,16 +194,69 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "/standort — PLZ setzen (lokales Wetter)\n"
             "/reset — Konversation zurücksetzen\n\n"
             "Oder schreib mir einfach! 💬",
-            parse_mode="Markdown",
         )
-    else:
+        return
+
+    # Neuer User oder Setup nicht fertig
+    if not user:
         create_user(chat_id)
         user = get_user(chat_id)
+
+    # Je nach aktuellem Setup-Step die richtige Nachricht zeigen
+    await _show_setup_step(update, chat_id, user)
+
+
+async def _show_setup_step(update, chat_id, user):
+    """Zeigt die richtige Setup-Nachricht mit Buttons basierend auf dem aktuellen Step."""
+    step = user.get("setup_step", "privacy")
+
+    if step == "privacy":
         keyboard = [[InlineKeyboardButton("✅ Ja, ich stimme zu", callback_data="privacy_accept")]]
         await update.message.reply_text(
             get_setup_message("privacy", user),
             reply_markup=InlineKeyboardMarkup(keyboard),
         )
+    elif step == "name":
+        await update.message.reply_text(get_setup_message("name", user))
+    elif step == "watch":
+        keyboard = [
+            [InlineKeyboardButton("⌚ Suunto", callback_data="watch_1")],
+            [InlineKeyboardButton("⌚ Garmin", callback_data="watch_2")],
+            [InlineKeyboardButton("⌚ COROS", callback_data="watch_3")],
+            [InlineKeyboardButton("⌚ Apple Watch", callback_data="watch_4")],
+            [InlineKeyboardButton("📝 Keine Uhr", callback_data="watch_5")],
+        ]
+        await update.message.reply_text(get_setup_message("watch", user), reply_markup=InlineKeyboardMarkup(keyboard))
+    elif step == "data_mode":
+        keyboard = [
+            [InlineKeyboardButton("📝 Manuell", callback_data="datamode_1")],
+            [InlineKeyboardButton("🔗 Automatisch", callback_data="datamode_2")],
+        ]
+        await update.message.reply_text(get_setup_message("data_mode", user), reply_markup=InlineKeyboardMarkup(keyboard))
+    elif step == "data_source_suunto":
+        keyboard = [
+            [InlineKeyboardButton("🔗 Suunto API", callback_data="datasrc_suunto_1")],
+            [InlineKeyboardButton("🔗 Via Strava", callback_data="datasrc_suunto_2")],
+        ]
+        await update.message.reply_text(get_setup_message("data_source_suunto", user), reply_markup=InlineKeyboardMarkup(keyboard))
+    elif step == "data_source_garmin":
+        keyboard = [
+            [InlineKeyboardButton("🔗 Garmin API", callback_data="datasrc_garmin_1")],
+            [InlineKeyboardButton("🔗 Via Strava", callback_data="datasrc_garmin_2")],
+        ]
+        await update.message.reply_text(get_setup_message("data_source_garmin", user), reply_markup=InlineKeyboardMarkup(keyboard))
+    elif step == "data_source_apple":
+        keyboard = [
+            [InlineKeyboardButton("📝 Manuell", callback_data="datasrc_apple_1")],
+            [InlineKeyboardButton("🔗 Via Strava", callback_data="datasrc_apple_2")],
+        ]
+        await update.message.reply_text(get_setup_message("data_source_apple", user), reply_markup=InlineKeyboardMarkup(keyboard))
+    elif step == "sports":
+        _sports_selection[chat_id] = set()
+        await update.message.reply_text("Welche Sportarten machst du? Tippe zum Auswählen:", reply_markup=_build_sports_keyboard(chat_id))
+    else:
+        # Alle anderen Steps (plz, dog, hangboard, kraft_fokus, extra) → Text-Eingabe
+        await update.message.reply_text(get_setup_message(step, user))
 
 
 async def plan(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -813,62 +866,40 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not user:
         create_user(chat_id)
         user = get_user(chat_id)
-        msg = get_setup_message("privacy", user)
-        await update.message.reply_text(msg, parse_mode="Markdown")
+        await _show_setup_step(update, chat_id, user)
         return
 
     if not user["setup_complete"]:
-        # Privacy-Step: Nur Button erlauben, kein Text
-        if user["setup_step"] == "privacy":
-            keyboard = [[InlineKeyboardButton("✅ Ja, ich stimme zu", callback_data="privacy_accept")]]
-            await update.message.reply_text(
-                "Bitte klicke den Button um zuzustimmen.",
-                reply_markup=InlineKeyboardMarkup(keyboard),
-            )
+        step = user["setup_step"]
+
+        # Steps die nur Buttons haben → kein Text akzeptieren
+        button_only_steps = {"privacy", "watch", "data_mode", "data_source_suunto", "data_source_garmin", "data_source_apple", "sports"}
+        if step in button_only_steps:
+            await _show_setup_step(update, chat_id, user)
             return
 
+        # Text-Steps (name, plz, dog, hangboard, kraft_fokus, extra)
         reply, done = process_setup_input(user, text)
         if done:
             _awaiting_plan_data.discard(chat_id)
 
-        # Nach Name-Eingabe: Uhr-Auswahl als Inline-Keyboard
+        # Nächsten Step mit Buttons zeigen wenn nötig
         next_user = get_user(chat_id)
-        if next_user and next_user["setup_step"] == "watch":
-            keyboard = [
-                [InlineKeyboardButton("⌚ Suunto", callback_data="watch_1")],
-                [InlineKeyboardButton("⌚ Garmin", callback_data="watch_2")],
-                [InlineKeyboardButton("⌚ COROS", callback_data="watch_3")],
-                [InlineKeyboardButton("⌚ Apple Watch", callback_data="watch_4")],
-                [InlineKeyboardButton("📝 Keine Uhr", callback_data="watch_5")],
-            ]
-            await update.message.reply_text(reply, reply_markup=InlineKeyboardMarkup(keyboard))
-        elif next_user and next_user["setup_step"] == "data_source_suunto":
-            keyboard = [
-                [InlineKeyboardButton("🔗 Suunto API", callback_data="datasrc_suunto_1")],
-                [InlineKeyboardButton("🔗 Via Strava", callback_data="datasrc_suunto_2")],
-            ]
-            await update.message.reply_text(reply, reply_markup=InlineKeyboardMarkup(keyboard))
-        elif next_user and next_user["setup_step"] == "data_source_garmin":
-            keyboard = [
-                [InlineKeyboardButton("🔗 Garmin API", callback_data="datasrc_garmin_1")],
-                [InlineKeyboardButton("🔗 Via Strava", callback_data="datasrc_garmin_2")],
-            ]
-            await update.message.reply_text(reply, reply_markup=InlineKeyboardMarkup(keyboard))
-        elif next_user and next_user["setup_step"] == "data_source_apple":
-            keyboard = [
-                [InlineKeyboardButton("📝 Manuell", callback_data="datasrc_apple_1")],
-                [InlineKeyboardButton("🔗 Via Strava", callback_data="datasrc_apple_2")],
-            ]
-            await update.message.reply_text(reply, reply_markup=InlineKeyboardMarkup(keyboard))
-        elif next_user and next_user["setup_step"] == "data_mode":
-            keyboard = [
-                [InlineKeyboardButton("📝 Manuell", callback_data="datamode_1")],
-                [InlineKeyboardButton("🔗 Automatisch", callback_data="datamode_2")],
-            ]
-            await update.message.reply_text(reply, reply_markup=InlineKeyboardMarkup(keyboard))
-        elif next_user and next_user["setup_step"] == "sports":
-            _sports_selection[chat_id] = set()
-            await update.message.reply_text("Welche Sportarten machst du? Tippe zum Auswählen:", reply_markup=_build_sports_keyboard(chat_id))
+        if next_user and not next_user["setup_complete"]:
+            next_step = next_user["setup_step"]
+            if next_step in button_only_steps:
+                # Erst die Antwort vom aktuellen Step zeigen
+                try:
+                    await update.message.reply_text(reply, parse_mode="Markdown")
+                except Exception:
+                    await update.message.reply_text(reply)
+                # Dann den nächsten Step mit Buttons
+                await _show_setup_step(update, chat_id, next_user)
+            else:
+                try:
+                    await update.message.reply_text(reply, parse_mode="Markdown")
+                except Exception:
+                    await update.message.reply_text(reply)
         else:
             try:
                 await update.message.reply_text(reply, parse_mode="Markdown")
