@@ -54,8 +54,7 @@ def get_setup_message(step: str, user: dict) -> str:
             "🤖 Deine Nachrichten werden von einer KI (Groq) verarbeitet — nichts wird dort dauerhaft gespeichert.\n"
             "🔗 Suunto/Strava-Daten nur wenn du dich verbindest.\n"
             "🗑️ Du kannst jederzeit alles löschen mit /delete.\n"
-            "📦 Deine Daten exportieren mit /export.\n\n"
-            "Schreib `ja` um zuzustimmen."
+            "📦 Deine Daten exportieren mit /export."
         )
 
     if step == "name":

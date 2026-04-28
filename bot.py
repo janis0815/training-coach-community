@@ -818,11 +818,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not user["setup_complete"]:
-        # Privacy-Step: Button nochmal zeigen wenn User Text statt Button schickt
-        if user["setup_step"] == "privacy" and text.strip().lower() != "ja":
+        # Privacy-Step: Nur Button erlauben, kein Text
+        if user["setup_step"] == "privacy":
             keyboard = [[InlineKeyboardButton("✅ Ja, ich stimme zu", callback_data="privacy_accept")]]
             await update.message.reply_text(
-                "Bitte klicke den Button oder schreib `ja` um zuzustimmen.",
+                "Bitte klicke den Button um zuzustimmen.",
                 reply_markup=InlineKeyboardMarkup(keyboard),
             )
             return
@@ -1025,16 +1025,13 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Datenschutz akzeptieren
     if data == "privacy_accept":
-        # Nur verarbeiten wenn User noch im Privacy-Step ist
         if user.get("setup_step") != "privacy":
             await query.answer("Bereits akzeptiert!", show_alert=False)
             return
         update_user(chat_id, privacy_accepted=1, setup_step="name")
         await query.edit_message_text("✅ Datenschutz akzeptiert!")
-        import asyncio
-        await asyncio.sleep(0.3)
         fresh_user = get_user(chat_id) or user
-        await query.message.reply_text(get_setup_message("name", fresh_user))
+        await context.bot.send_message(chat_id=chat_id, text=get_setup_message("name", fresh_user))
 
     # Uhr-Auswahl
     elif data.startswith("watch_"):

@@ -49,7 +49,6 @@ Pro Tag dieses Format verwenden:
 ━━━━━━━━━━━━━━━━━━━━
 [Emoji] [Sportart] [Intensität] | [Dauer]
 📍 [Details zur Einheit]
-💪 [Muskelgruppen]
 🗺️ Route: [Komoot-Link wenn Outdoor]
 
 [Aufwärmen → Hauptteil → Cooldown mit konkreten Übungen]
