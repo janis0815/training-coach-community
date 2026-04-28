@@ -1176,14 +1176,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def _send_reply(update: Update, reply: str):
-    """Sendet Antwort mit Markdown. Fällt auf Plain-Text zurück bei Parse-Fehlern."""
+    """Sendet Antwort in Chunks. Kein Markdown — Emojis und Trennlinien reichen."""
     chunks = [reply[i : i + 4096] for i in range(0, len(reply), 4096)]
     for chunk in chunks:
-        try:
-            await update.message.reply_text(chunk, parse_mode="Markdown")
-        except Exception:
-            # Markdown-Parsing fehlgeschlagen → Plain-Text senden
-            await update.message.reply_text(chunk)
+        await update.message.reply_text(chunk)
 
 
 async def weekly_plan_reminder(context: ContextTypes.DEFAULT_TYPE):
