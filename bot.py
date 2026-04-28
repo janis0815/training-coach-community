@@ -1058,10 +1058,13 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if user.get("setup_step") != "privacy":
             await query.answer("Bereits akzeptiert!", show_alert=False)
             return
-        update_user(chat_id, privacy_accepted=1, setup_step="name")
-        await query.edit_message_text("✅ Datenschutz akzeptiert!")
-        fresh_user = get_user(chat_id) or user
-        await context.bot.send_message(chat_id=chat_id, text=get_setup_message("name", fresh_user))
+        try:
+            update_user(chat_id, privacy_accepted=1, setup_step="name")
+            await query.edit_message_text("✅ Datenschutz akzeptiert!")
+            await context.bot.send_message(chat_id=chat_id, text="Cool! 🎉 Wie heißt du?")
+        except Exception as e:
+            logger.error(f"Privacy-Button Fehler: {e}")
+            await context.bot.send_message(chat_id=chat_id, text="Cool! 🎉 Wie heißt du?")
 
     # Uhr-Auswahl
     elif data.startswith("watch_"):
