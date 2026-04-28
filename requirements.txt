@@ -1,4 +1,4 @@
-python-telegram-bot==21.6
+python-telegram-bot[job-queue]==21.6
 groq>=1.0.0,<2.0.0
 python-dotenv==1.1.0
 playwright>=1.40.0,<2.0.0
