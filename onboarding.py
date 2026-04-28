@@ -26,14 +26,13 @@ SPORT_LABELS = {
     "faszienrolle": "Faszienrolle",
 }
 
-WATCH_OPTIONS = {"1": "suunto", "2": "garmin", "3": "coros", "4": "apple_watch", "5": "sigma", "6": "manuell"}
+WATCH_OPTIONS = {"1": "suunto", "2": "garmin", "3": "coros", "4": "apple_watch", "5": "manuell"}
 
 WATCH_LABELS = {
     "suunto": "⌚ Suunto",
     "garmin": "⌚ Garmin",
     "coros": "⌚ COROS",
     "apple_watch": "⌚ Apple Watch",
-    "sigma": "🚴 Sigma (ROX)",
     "manuell": "📝 Keine Uhr",
 }
 
@@ -68,8 +67,7 @@ def get_setup_message(step: str, user: dict) -> str:
             "2. ⌚ Garmin\n"
             "3. ⌚ COROS\n"
             "4. ⌚ Apple Watch\n"
-            "5. 🚴 Sigma (ROX Fahrradcomputer)\n"
-            "6. 📝 Keine Uhr / anderer Tracker\n\n"
+            "5. 📝 Keine Uhr / anderer Tracker\n\n"
             "Schick mir die Nummer."
         )
 
@@ -215,7 +213,7 @@ def process_setup_input(user: dict, text: str) -> tuple[str, bool]:
     if step == "watch":
         choice = text.strip()
         if choice not in WATCH_OPTIONS:
-            return "❌ Bitte schick mir eine Nummer (1-6).", False
+            return "❌ Bitte schick mir eine Nummer (1-5).", False
 
         watch = WATCH_OPTIONS[choice]
         update_user(chat_id, watch=watch)

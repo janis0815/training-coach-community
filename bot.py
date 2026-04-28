@@ -839,8 +839,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton("⌚ Garmin", callback_data="watch_2")],
                 [InlineKeyboardButton("⌚ COROS", callback_data="watch_3")],
                 [InlineKeyboardButton("⌚ Apple Watch", callback_data="watch_4")],
-                [InlineKeyboardButton("🚴 Sigma ROX", callback_data="watch_5")],
-                [InlineKeyboardButton("📝 Keine Uhr", callback_data="watch_6")],
+                [InlineKeyboardButton("📝 Keine Uhr", callback_data="watch_5")],
             ]
             await update.message.reply_text(reply, reply_markup=InlineKeyboardMarkup(keyboard))
         elif next_user and next_user["setup_step"] == "data_source_suunto":
