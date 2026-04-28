@@ -92,6 +92,23 @@ def _check_rate_limit(chat_id: int) -> str | None:
 # Track welche User gerade auf /plan-Daten warten
 _awaiting_plan_data: set[int] = set()
 
+# Track Sportarten-Auswahl per User (Multi-Select State)
+_sports_selection: dict[int, set[str]] = {}
+
+
+def _build_sports_keyboard(chat_id: int) -> InlineKeyboardMarkup:
+    """Baut das Multi-Select Keyboard für Sportarten."""
+    from database import AVAILABLE_SPORTS
+    from onboarding import SPORT_EMOJIS, SPORT_LABELS
+    selected = _sports_selection.get(chat_id, set())
+    keyboard = []
+    for sport in AVAILABLE_SPORTS:
+        check = "✅" if sport in selected else "⬜"
+        label = f"{check} {SPORT_EMOJIS.get(sport, '')} {SPORT_LABELS.get(sport, sport)}"
+        keyboard.append([InlineKeyboardButton(label, callback_data=f"sport_{sport}")])
+    keyboard.append([InlineKeyboardButton("✔️ Fertig", callback_data="sports_done")])
+    return InlineKeyboardMarkup(keyboard)
+
 
 def _get_user_weather(user: dict) -> tuple[list[dict] | None, str]:
     """Holt Wetter für den User-Standort (PLZ oder Fallback Hannover)."""
@@ -841,6 +858,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton("🔗 Automatisch", callback_data="datamode_2")],
             ]
             await update.message.reply_text(reply, reply_markup=InlineKeyboardMarkup(keyboard))
+        elif next_user and next_user["setup_step"] == "sports":
+            _sports_selection[chat_id] = set()
+            await update.message.reply_text("Welche Sportarten machst du? Tippe zum Auswählen:", reply_markup=_build_sports_keyboard(chat_id))
         else:
             try:
                 await update.message.reply_text(reply, parse_mode="Markdown")
@@ -1016,7 +1036,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 # Wenn nächster Schritt auch Buttons braucht
                 next_user = get_user(chat_id)
                 if next_user and next_user["setup_step"] == "sports":
-                    await query.message.reply_text(reply)
+                    _sports_selection[chat_id] = set()
+                    await query.message.reply_text("Welche Sportarten machst du? Tippe zum Auswählen:", reply_markup=_build_sports_keyboard(chat_id))
                 elif next_user and next_user["setup_step"] == "data_mode":
                     keyboard = [
                         [InlineKeyboardButton("📝 Manuell", callback_data="datamode_1")],
@@ -1053,6 +1074,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton("🔗 Via Strava", callback_data="datasrc_apple_2")],
             ]
             await query.message.reply_text(reply, reply_markup=InlineKeyboardMarkup(keyboard))
+        elif next_user and next_user["setup_step"] == "sports":
+            _sports_selection[chat_id] = set()
+            await query.message.reply_text("Welche Sportarten machst du? Tippe zum Auswählen:", reply_markup=_build_sports_keyboard(chat_id))
         else:
             try:
                 await query.message.reply_text(reply)
@@ -1065,10 +1089,47 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         num = parts[-1] if len(parts) > 1 else "1"
         reply, done = process_setup_input(user, num)
         await query.edit_message_text("🔗 Datenquelle gespeichert!")
-        try:
-            await query.message.reply_text(reply)
-        except Exception:
-            await query.message.reply_text(reply)
+        next_user = get_user(chat_id)
+        if next_user and next_user["setup_step"] == "sports":
+            _sports_selection[chat_id] = set()
+            await query.message.reply_text("Welche Sportarten machst du? Tippe zum Auswählen:", reply_markup=_build_sports_keyboard(chat_id))
+        else:
+            try:
+                await query.message.reply_text(reply)
+            except Exception:
+                await query.message.reply_text(reply)
+
+    # Sportarten Multi-Select Toggle
+    elif data.startswith("sport_"):
+        sport = data.replace("sport_", "")
+        if chat_id not in _sports_selection:
+            _sports_selection[chat_id] = set()
+        if sport in _sports_selection[chat_id]:
+            _sports_selection[chat_id].discard(sport)
+        else:
+            _sports_selection[chat_id].add(sport)
+        await query.edit_message_reply_markup(reply_markup=_build_sports_keyboard(chat_id))
+
+    # Sportarten Fertig
+    elif data == "sports_done":
+        selected = list(_sports_selection.get(chat_id, set()))
+        if not selected:
+            await query.answer("Bitte wähle mindestens eine Sportart!", show_alert=True)
+            return
+        # Sportarten speichern und nächsten Schritt triggern
+        from onboarding import SPORT_EMOJIS, SPORT_LABELS
+        update_user(chat_id, sports=selected)
+        user["sports"] = selected
+        sports_str = ", ".join(f"{SPORT_EMOJIS.get(s, '')} {SPORT_LABELS.get(s, s)}" for s in selected)
+        await query.edit_message_text(f"✅ Sportarten: {sports_str}")
+        # Nächsten Onboarding-Schritt bestimmen
+        from onboarding import _next_step_after_sports
+        next_step = _next_step_after_sports(user)
+        update_user(chat_id, setup_step=next_step)
+        from onboarding import get_setup_message
+        reply = get_setup_message(next_step, user)
+        await query.message.reply_text(reply)
+        _sports_selection.pop(chat_id, None)
 
 
 async def _send_reply(update: Update, reply: str):
